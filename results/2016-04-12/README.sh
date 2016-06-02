@@ -19,7 +19,7 @@ DATADIR=`pwd | sed 's/results/data/'`
 MAXCPUS=16
 # To summarize the proportion of X fragments, use fragments of at least this
 # length:
-MINLENGTH=500
+MINLENGTH=300
 
 if [ ! -d $DATADIR ]; then
    mkdir $DATADIR
@@ -122,3 +122,41 @@ fi
 # a lot, and waste a lot of sequences, to survey the variation in the X chromosome with enough
 # detail.
 #
+# I am still wanting to try a GBS experiment. I would aim at no more than 3000 fragments in
+# chromosome X. I require the overhang not to include the whole restriction site, so that I can
+# design adapters that do not reproduce the restriction site, and use afterwards the same enzyme
+# to get rid of chimeras. One interesting candidate is NspI, which recognizes RCATGY, leaves a
+# CATG-3' overhang, and produces 19043 fragments between 250 and 500 bp, including 3352 from the
+# X chromosome. Another reasonable candidate is HaeII, cutting on RGCGCY, leaving a GCGC3' overhang
+# and producing 11455 genomic fragments between 250 and 500, including 2339 from chromosome X.
+#
+# In order to try another enzyme, I want to know how many fragments of each type are produced
+# by some frequent cutters with degenerate recognition sites. In particular, I am interested in
+# pattern GDGCHC, recognized by Bsp1286I, and leaving DGCH-3' overhang
+#
+# GDGCHC	G[AGT]GC[ACT]C
+#
+# Such a degenerate recognition site corresponds to 6 different sequences (see below), only three
+# of which are palindromic. I wondered whether all 6 sequences would be cut by the enzyme or if it
+# would only cut the palindromic ones. I digested in silico the genome of the bacteriophage M13mp7
+# and reproduced the pattern of 4 fragments experimentally obtained with the isoschizomer BmyI,
+# as reported by  Wagner et al. (1990; Nucl. Acids Res. 18[10]:3088). The 4 cut sites in M13mp7 are
+# all different, and only one is palindromic (not shown).
+#
+# How many types of fragments would Bsp1286I generate? The 3 non-palindromic sequences can be in
+# 2 different orientations, relative to the site in the opposite extreme. Thus, they count as double
+# number of sequences. Regardless of the order in which they appear, and allowing the same sequence
+# in both ends, this amounts to 9 + (9 over 2) = 9 + 9 * 8 / 2 = 45 fragment types.
+
+#if [ ! -e patterns ]; then
+#   echo -e "GDGCHC1\tGAGCAC|GTGCTC"  > patterns2 # AGCA-3'/TGCT-3' overhangs.
+#   echo -e "GDGCHC2\tGAGCCC|GGGCTC" >> patterns2
+#   echo -e "GDGCHC3\tGAGCTC"        >> patterns2
+#   echo -e "GDGCHC4\tGGGCAC|GTGCCC" >> patterns2
+#   echo -e "GDGCHC5\tGGGCCC"        >> patterns2
+##  echo -e "GDGCHC6\tGGGCTC|GAGCCC" >> patterns2 # same as GDGCHC2
+#   echo -e "GDGCHC7\tGTGCAC"        >> patterns2
+##  echo -e "GDGCHC8\tGTGCCC|GGGCAC" >> patterns2 # same as GDGCHC4
+##  echo -e "GDGCHC9\tGTGCTC|GAGCAC" >> patterns2 # same as GDGCHC1
+#fi
+

@@ -14,7 +14,7 @@
 # in first 100 bases of the fragment, number of masked bases in last 100 bases
 # of the fragment.
 
-use lib '/home/ilucas/.lib/';
+#use lib '/home/ilucas/.lib/';
 use warnings;
 use strict;
 use Getopt::Std;

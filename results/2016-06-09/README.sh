@@ -136,17 +136,14 @@ if [ ! -e oligos ]; then
       BOTSUFIX = "TCGGAAGAGCACACGTCTGAACTCCAGTCAC"
       COMP["A"] = "T"; COMP["C"] = "G"; COMP["G"] = "C"; COMP["T"] = "A"
    }
-   function revcomp(SEQ,   REV){
+   function revcomp(SEQ,   REV,z){
       REV = ""
-      for (i = length(SEQ); i > 0; i--) {
-         REV = REV COMP[substr(SEQ, i, 1)]
+      for (z = length(SEQ); z > 0; z--) {
+         REV = REV COMP[substr(SEQ, z, 1)]
       }
       return REV
    }
    {
-      for (i = 1; i <= NF; i++) {
-         CODEWORD[i] = $i
-      }
       for (SET = 0; SET <= 2; SET++) {
          for (CWINSET = 1; CWINSET <= 4; CWINSET++) {
             CODEWORD[substr($(SET * 4 + CWINSET), 8, 1)] = $(SET * 4 + CWINSET)
@@ -158,6 +155,8 @@ if [ ! -e oligos ]; then
                if (C != A) {
                   for (G = 1; G <= 3; G++) {
                      if ((G != A) && (G != C)) {
+                        # 'i' goes from 1 to 6, and identifies the distribution of lengths among the 4
+                        # oligos of each balanced set.
                         i++
                         TOPOLIGO[SET, i, "A"] = TOPPREFIX CODEWORD["A"] TOPSUFIX[A]
                         TOPOLIGO[SET, i, "C"] = TOPPREFIX CODEWORD["C"] TOPSUFIX[C]
@@ -177,6 +176,7 @@ if [ ! -e oligos ]; then
       for (i = 1; i <= 6; i++) {
          for (j = 1; j <= 6; j++) {
             for (k = 1; k <= 6; k++) {
+               # n goes from 1 to 216, and identifies the combination of sets.
                n++
                CODE = sprintf("CODE%04u.%03u", NR, n)
                CODE = CODE "\t" TOPOLIGO[0, i, "A"] "\t" TOPOLIGO[0, i, "C"] "\t" TOPOLIGO[0, i, "G"] "\t" TOPOLIGO[0, i, "T"]
@@ -185,15 +185,15 @@ if [ ! -e oligos ]; then
                CODE = CODE "\t" BOTOLIGO[0, i, "A"] "\t" BOTOLIGO[0, i, "C"] "\t" BOTOLIGO[0, i, "G"] "\t" BOTOLIGO[0, i, "T"]
                CODE = CODE "\t" BOTOLIGO[1, j, "A"] "\t" BOTOLIGO[1, j, "C"] "\t" BOTOLIGO[1, j, "G"] "\t" BOTOLIGO[1, j, "T"]
                CODE = CODE "\t" BOTOLIGO[2, k, "A"] "\t" BOTOLIGO[2, k, "C"] "\t" BOTOLIGO[2, k, "G"] "\t" BOTOLIGO[2, k, "T"]
-               print CODE >"oligos"
+               print CODE
             }
          }
       }
-   }' codes.top
+   }' codes.top > oligos
 fi
 
 PROCESSES=24
-rm z*
+#rm z*
 split -d --additional-suffix=.txt -n l/$PROCESSES oligos zoligos
 
 # Add control, and call the following in a script, to parallelize

@@ -1,11 +1,11 @@
 #!/bin/bash
 
 FILE=`basename $1 .txt`
-FILESIZE=`wc -l $FILE | gawk '{print $1}'`
+FILESIZE=`wc -l $FILE.txt | gawk '{print $1}'`
 for line in `seq 1 $FILESIZE`; do
    SCORES=""
-   for oligo in `head -n $line $FILE | tail -n 1`; do
-      if echo $oligo | grep -q -P "[ACGT]*"; then
+   for oligo in `head -n $line $FILE.txt | tail -n 1`; do
+      if echo $oligo | grep -q -P "^[ACGT]*$"; then
          echo ">oligo" > z$FILE.fa
          echo $oligo  >> z$FILE.fa
          exonerate --query  z$FILE.fa \

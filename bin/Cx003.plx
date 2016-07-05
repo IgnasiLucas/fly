@@ -1,8 +1,7 @@
 #!/usr/bin/perl
 #
 # Here I implement an algorithm to write lists of 12 8-nucleotide
-# words that I believe to be at a minimum Hamming distance of 4, and
-# with balanced composition.
+# words that I believe to be at a minimum Hamming distance of 4.
 
 use warnings;
 use strict;
@@ -40,7 +39,7 @@ sub next_four {
 				}
 			}
 		}
-		if (scalar @ current == $number) {
+		if (scalar @current == $number) {
 			push(@options, join("", @current));
 		} else {
 			print join("", @previous), "\n", join("-", @current), "\n";

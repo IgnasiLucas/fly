@@ -10,6 +10,11 @@ in updating the GBS protocol, I will prepare a pilot experiment.
 As usual, below I explain the goal of the analyses run in each folder, in reverse
 chronological order.
 
+2016-06-09
+==========
+Design of 12 adapters with in-line 8-nucloetide codewords, for use with restriction enzyme
+NspI.
+
 2016-04-12
 ==========
 

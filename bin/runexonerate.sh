@@ -17,11 +17,11 @@ for line in `seq 1 $FILESIZE`; do
                    --showalignment false 2> /dev/null | \
          gawk -v S=19 '((/^vulgar/) && (S == 19) && ($5 != $9)){
             S = $10; print S; nextfile}' > z$FILE.score
-         SCORES=$SCORES" "`cat z$FILE.score`
+         SCORES=$SCORES"\t"`cat z$FILE.score`
       else
-         SCORES=$SCORES" NA"
+         SCORES=$SCORES"\tNA"
       fi
    done
-   echo $SCORES
+   echo -e $SCORES
    rm z$FILE*
 done

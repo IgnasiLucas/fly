@@ -1,4 +1,4 @@
-data/
+data
 results/2016-04-12/AACGTT/
 results/2016-04-12/AAGCTT/
 results/2016-04-12/ACCGGT/
@@ -112,4 +112,6 @@ Magnetic_Rack_for_8_15mL_Tubes/
 results/2016-06-09/illumina-adapter-sequences_1000000002694-01.pdf
 results/2016-06-09/codes.top
 results/2016-06-09/oligos
+results/2016-06-09/oligos.exonerate
+results/2016-06-09/oligos.mfold
 

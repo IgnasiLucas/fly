@@ -192,13 +192,19 @@ if [ ! -e oligos ]; then
    }' codes.top > oligos
 fi
 
-PROCESSES=24
+PROCESSES=60
 #rm z*
 split -d --additional-suffix=.txt -n l/$PROCESSES oligos zoligos
 
-# Add control, and call the following in a script, to parallelize
+# In order to parallelize, I call mfold from the runmfold.sh script. Because
+# mfold produces output to /dev/tty, which cannot be redirected with conventional
+# pipelines, I wanted to use the command 'script' to get rid of the unintelligible,
+# undocumented output of mfold. But it did not work. I used script when calling README.sh,
+# but still could not detach the process from the terminal. For now, it seems necessary
+# to have the terminal active while running this.
+
 for file in `basename -s .txt zoligos*.txt`; do
-   if [ ! -e $file.mfold ] && [ ! -e oligosdata ]; then
+   if [ ! -e $file.mfold ] && [ ! -e oligosdata ] && [ ! -e oligos.mfold ]; then
       ../../bin/runmfold.sh $file.txt > $file.mfold &
    fi
 done
@@ -226,17 +232,23 @@ wait
 # strongly with the expected hybridization.
 
 for file in `basename -s .txt zoligos*.txt`; do
-   if [ ! -e $file.exonerate ] && [ ! -e oligosdata ]; then
+   if [ ! -e $file.exonerate ] && [ ! -e oligosdata ] && [ ! -e oligos.exonerate ]; then
       ../../bin/runexonerate.sh $file.txt > $file.exonerate &
    fi
 done
 wait
 
 if [ ! -e oligosdata ]; then
-   cat zoligos*.mfold > oligos.mfold
-   cat zoligos*.exonerate > oligos.exonerate
+   if [ ! -e oligos.mfold ]; then
+      cat zoligos*.mfold > oligos.mfold
+      rm zoligos*.mfold
+   fi
+   if [ ! -e oligos.exonerate ]; then
+      cat zoligos*.exonerate > oligos.exonerate
+      rm zoligos*.exonerate
+   fi
    paste oligos.mfold oligos.exonerate | cut -f 2-25,27- > oligosdata
-   rm oligos.mfold oligos.exonerate zoligos*
+#  rm oligos.mfold oligos.exonerate
 fi
 
 # The file oligosdata should be a matrix of 871776 rows and 48 columns. Each row corresponds to

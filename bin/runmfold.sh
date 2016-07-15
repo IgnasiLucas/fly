@@ -6,23 +6,24 @@
 # the oligo.
 
 FILE=`basename $1 .txt`
-FILESIZE=`wc -l $FILE | gawk '{print $1}'`
+FILESIZE=`wc -l $FILE.txt | gawk '{print $1}'`
 for line in `seq 1 $FILESIZE`; do
    ENERGIES=""
-   for oligo in `head -n $line $FILE | tail -n 1`; do
-      if echo $oligo | grep -q -P "[ACGT]*"; then
+   for oligo in `head -n $line $FILE.txt | tail -n 1`; do
+      if echo $oligo | grep -q -P "^[ACGT]*$"; then
          echo ">oligo" > z$FILE.fa
          echo $oligo >> z$FILE.fa
-         mfold SEQ=z$FILE.fa T=16 NA_CONC=0.05 MG_CONC=0.01 NA=DNA 1> z$FILE.log 2> z$FILE.err
-         if [ -e z$FILE"_1.ct" ]; then
-            ENERGIES=$ENERGIES" "`head -n 1 z$FILE"_1.ct" | gawk '{print $4}'`
+         #mfold writes a few lines to /dev/tty. They are caught neither by stderr nor by stdout.
+         mfold SEQ=z$FILE.fa T=16 NA_CONC=0.05 MG_CONC=0.01 NA=DNA MAX=10 1> z$FILE.log 2> z$FILE.err
+         if [ -e z$FILE".fa_1.ct" ]; then
+            ENERGIES=$ENERGIES"\t"`head -n 1 z$FILE".fa_1.ct" | gawk '{print $4}'`
          else
-            ENERGIES=$ENERGIES" 0.0"
+            ENERGIES=$ENERGIES"\t0.0"
          fi
+         rm z$FILE*
       else
-         ENERGIES=$ENERGIES" NA"
+         ENERGIES=$ENERGIES"\tNA"
       fi
-      rm z$FILE*
    done
-   echo $ENERGIES
+   echo -e $ENERGIES
 done

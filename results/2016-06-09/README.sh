@@ -75,7 +75,7 @@ fi
 #
 # The adapters are composed of a top and a bottom oligo. The top oligo has 30 constant
 # nucleotides, followed by an 8 nucleotides codeword, a sufix of 0 to 3 nucleotides and
-# the overhang that matxes that of the digested fragments. In order to avoid the regeneration
+# the overhang that matches that of the digested fragments. In order to avoid the regeneration
 # of the restriction site upon ligation of the adapters to the genomic fragments, the last
 # nuclotide before the overhang must be C or T. This will allow the secondary restriction
 # of chimeric fragments, or the simultaneous digestion and ligation.
@@ -136,17 +136,14 @@ if [ ! -e oligos ]; then
       BOTSUFIX = "TCGGAAGAGCACACGTCTGAACTCCAGTCAC"
       COMP["A"] = "T"; COMP["C"] = "G"; COMP["G"] = "C"; COMP["T"] = "A"
    }
-   function revcomp(SEQ,   REV){
+   function revcomp(SEQ,   REV,z){
       REV = ""
-      for (i = length(SEQ); i > 0; i--) {
-         REV = REV COMP[substr(SEQ, i, 1)]
+      for (z = length(SEQ); z > 0; z--) {
+         REV = REV COMP[substr(SEQ, z, 1)]
       }
       return REV
    }
    {
-      for (i = 1; i <= NF; i++) {
-         CODEWORD[i] = $i
-      }
       for (SET = 0; SET <= 2; SET++) {
          for (CWINSET = 1; CWINSET <= 4; CWINSET++) {
             CODEWORD[substr($(SET * 4 + CWINSET), 8, 1)] = $(SET * 4 + CWINSET)
@@ -158,6 +155,8 @@ if [ ! -e oligos ]; then
                if (C != A) {
                   for (G = 1; G <= 3; G++) {
                      if ((G != A) && (G != C)) {
+                        # 'i' goes from 1 to 6, and identifies the distribution of lengths among the 4
+                        # oligos of each balanced set.
                         i++
                         TOPOLIGO[SET, i, "A"] = TOPPREFIX CODEWORD["A"] TOPSUFIX[A]
                         TOPOLIGO[SET, i, "C"] = TOPPREFIX CODEWORD["C"] TOPSUFIX[C]
@@ -177,6 +176,7 @@ if [ ! -e oligos ]; then
       for (i = 1; i <= 6; i++) {
          for (j = 1; j <= 6; j++) {
             for (k = 1; k <= 6; k++) {
+               # n goes from 1 to 216, and identifies the combination of sets.
                n++
                CODE = sprintf("CODE%04u.%03u", NR, n)
                CODE = CODE "\t" TOPOLIGO[0, i, "A"] "\t" TOPOLIGO[0, i, "C"] "\t" TOPOLIGO[0, i, "G"] "\t" TOPOLIGO[0, i, "T"]
@@ -185,20 +185,28 @@ if [ ! -e oligos ]; then
                CODE = CODE "\t" BOTOLIGO[0, i, "A"] "\t" BOTOLIGO[0, i, "C"] "\t" BOTOLIGO[0, i, "G"] "\t" BOTOLIGO[0, i, "T"]
                CODE = CODE "\t" BOTOLIGO[1, j, "A"] "\t" BOTOLIGO[1, j, "C"] "\t" BOTOLIGO[1, j, "G"] "\t" BOTOLIGO[1, j, "T"]
                CODE = CODE "\t" BOTOLIGO[2, k, "A"] "\t" BOTOLIGO[2, k, "C"] "\t" BOTOLIGO[2, k, "G"] "\t" BOTOLIGO[2, k, "T"]
-               print CODE >"oligos"
+               print CODE
             }
          }
       }
-   }' codes.top
+   }' codes.top > oligos
 fi
 
-PROCESSES=24
-rm z*
-split -d --additional-suffix=.txt -n l/$PROCESSES oligos zoligos
+PROCESSES=60
+#rm z*
+if [ ! -e oligos.mfold ] && [ ! -e oligos.exonerate ] && [ ! -e oligosdata ]; then
+   split -d --additional-suffix=.txt -n l/$PROCESSES oligos zoligos
+fi
 
-# Add control, and call the following in a script, to parallelize
+# In order to parallelize, I call mfold from the runmfold.sh script. Because
+# mfold produces output to /dev/tty, which cannot be redirected with conventional
+# pipelines, I wanted to use the command 'script' to get rid of the unintelligible,
+# undocumented output of mfold. But it did not work. I used script when calling README.sh,
+# but still could not detach the process from the terminal. For now, it seems necessary
+# to have the terminal active while running this.
+
 for file in `basename -s .txt zoligos*.txt`; do
-   if [ ! -e $file.mfold ] && [ ! -e oligosdata ]; then
+   if [ ! -e $file.mfold ] && [ ! -e oligosdata ] && [ ! -e oligos.mfold ]; then
       ../../bin/runmfold.sh $file.txt > $file.mfold &
    fi
 done
@@ -226,17 +234,25 @@ wait
 # strongly with the expected hybridization.
 
 for file in `basename -s .txt zoligos*.txt`; do
-   if [ ! -e $file.exonerate ] && [ ! -e oligosdata ]; then
+   if [ ! -e $file.exonerate ] && [ ! -e oligosdata ] && [ ! -e oligos.exonerate ]; then
       ../../bin/runexonerate.sh $file.txt > $file.exonerate &
    fi
 done
 wait
 
 if [ ! -e oligosdata ]; then
-   cat zoligos*.mfold > oligos.mfold
-   cat zoligos*.exonerate > oligos.exonerate
-   paste oligos.mfold oligos.exonerate | cut -f 2-25,27- > oligosdata
-   rm oligos.mfold oligos.exonerate zoligos*
+   if [ ! -e oligos.mfold ]; then
+      cat zoligos*.mfold > oligos.mfold
+      rm zoligos*.mfold
+   fi
+   if [ ! -e oligos.exonerate ]; then
+      cat zoligos*.exonerate > oligos.exonerate
+      rm zoligos*.exonerate
+   fi
+   # Note that both runexonerate.sh writes tab-separated files that start with
+   # '\tNA\t'. Thus, for 'cut' oligos.exonerate have two extra columns.
+   paste oligos.mfold oligos.exonerate | cut -f 1-25,28- > oligosdata
+#  rm oligos.mfold oligos.exonerate
 fi
 
 # The file oligosdata should be a matrix of 871776 rows and 48 columns. Each row corresponds to
@@ -256,11 +272,11 @@ if [ ! -e trace ]; then
       SUMDIMERS = 0
       THISMINENERGY = 0
       THISMAXDIMERS = 0
-      for (i = 1; i <= 24; i++) {
+      for (i = 2; i <= 25; i++) {
          SUMENERGY += $i
          if ($i < THISMINENERGY) THISMINENERGY = $i
       }
-      for (i = 25; i <= 48; i++) {
+      for (i = 26; i <= 49; i++) {
          SUMDIMERS += $i
          if ($i > THISMAXDIMERS) THISMAXDIMERS = $i
       }

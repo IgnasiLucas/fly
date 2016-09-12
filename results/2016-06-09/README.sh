@@ -75,7 +75,7 @@ fi
 #
 # The adapters are composed of a top and a bottom oligo. The top oligo has 30 constant
 # nucleotides, followed by an 8 nucleotides codeword, a sufix of 0 to 3 nucleotides and
-# the overhang that matxes that of the digested fragments. In order to avoid the regeneration
+# the overhang that matches that of the digested fragments. In order to avoid the regeneration
 # of the restriction site upon ligation of the adapters to the genomic fragments, the last
 # nuclotide before the overhang must be C or T. This will allow the secondary restriction
 # of chimeric fragments, or the simultaneous digestion and ligation.
@@ -194,7 +194,9 @@ fi
 
 PROCESSES=60
 #rm z*
-split -d --additional-suffix=.txt -n l/$PROCESSES oligos zoligos
+if [ ! -e oligos.mfold ] && [ ! -e oligos.exonerate ] && [ ! -e oligosdata ]; then
+   split -d --additional-suffix=.txt -n l/$PROCESSES oligos zoligos
+fi
 
 # In order to parallelize, I call mfold from the runmfold.sh script. Because
 # mfold produces output to /dev/tty, which cannot be redirected with conventional
@@ -247,7 +249,9 @@ if [ ! -e oligosdata ]; then
       cat zoligos*.exonerate > oligos.exonerate
       rm zoligos*.exonerate
    fi
-   paste oligos.mfold oligos.exonerate | cut -f 2-25,27- > oligosdata
+   # Note that both runexonerate.sh writes tab-separated files that start with
+   # '\tNA\t'. Thus, for 'cut' oligos.exonerate have two extra columns.
+   paste oligos.mfold oligos.exonerate | cut -f 1-25,28- > oligosdata
 #  rm oligos.mfold oligos.exonerate
 fi
 
@@ -268,11 +272,11 @@ if [ ! -e trace ]; then
       SUMDIMERS = 0
       THISMINENERGY = 0
       THISMAXDIMERS = 0
-      for (i = 1; i <= 24; i++) {
+      for (i = 2; i <= 25; i++) {
          SUMENERGY += $i
          if ($i < THISMINENERGY) THISMINENERGY = $i
       }
-      for (i = 25; i <= 48; i++) {
+      for (i = 26; i <= 49; i++) {
          SUMDIMERS += $i
          if ($i > THISMAXDIMERS) THISMAXDIMERS = $i
       }

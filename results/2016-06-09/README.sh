@@ -68,10 +68,24 @@ fi
 # NspI-adapters
 # =============
 #
-# P2      5-AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGA-3
-#                                  5-ACACTCTTTCCCTACACGACGCTCTTCCGAXXXXXXXYCATG-3
-#                                      |||      |        ||||||||||||||||||
-#                                 3-CACTGACCTCAAGTCTGCACACGAGAAGGCTxxxxxxxR-5
+# P2         5-AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGA-3
+#                                     5-ACACTCTTTCCCTACACGACGCTCTTCCGAXXXXXXXTCATG-3
+#                                         |||      |        ||||||||||||||||||
+#                                    3-CACTGACCTCAAGTCTGCACACGAGAAGGCTxxxxxxxA-5
+#                                      |||||||||||||||||||||||||||||||
+# P1 5-CAAGCAGAAGACGGCATACGAGATYYYYYYYYGTGACTGGAGTTCAGACGTGTGCTCTTCCGA-3->
+#
+#                                       ACACTCTTTCCCTACACGACGCTCTTCCG*A
+#                                                                                                                P1
+# P2         5-AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGA-3                                     <-3-AGCCTTCTCGTGTGCAGACTTGAGGTCAGTGYYYYYYYYTAGAGCATACGGCAGAAGACGAAC-5
+#                                                                                                                |||||||||||||||||||||||||||||||
+#                                     5-ACACTCTTTCCCTACACGACGCTCTTCCGAXXXXXXXTCATGNNNNNNNNNNNNNNNNNNNCATGAxxxxxxxTCGGAAGAGCACACGTCTGAACTCCAGTCAC-3
+#                                         |||      |        |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||               ||
+#                                    3-CACTGACCTCAAGTCTGCACACGAGAAGGCTxxxxxxxAGTACNNNNNNNNNNNNNNNNNNNGTACTXXXXXXXAGCCTTCTCGCAGCACATCCCTTTCTCACA-5
+#                                      |||||||||||||||||||||||||||||||
+# P1 5-CAAGCAGAAGACGGCATACGAGATYYYYYYYYGTGACTGGAGTTCAGACGTGTGCTCTTCCGA-3->                                     3-AGCCTTCTCGCAGCACATCCCTTTCTCACATCTAGAGCCACCAGCGGCATAGTAA-5
+#                                      GTGACTGGAGTTCAGACGTGTGCTCTTCCG*A
+
 #
 # The adapters are composed of a top and a bottom oligo. The top oligo has 30 constant
 # nucleotides, followed by an 8 nucleotides codeword, a sufix of 0 to 3 nucleotides and
@@ -293,4 +307,66 @@ if [ ! -e trace ]; then
    }' oligosdata > trace
 fi
 
-# The last row of file trace should have the name of the best set of oligos.
+# The last row of file trace should have the name of the best set of oligos. I paste
+# below the chosen set of oligos:
+#
+#   CODE2315.128
+#
+#   Top oligos:
+#                                   Codeword
+#  5------------------------------|-----------|--->3'
+#
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA TTGATCCAGT  CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA GATCAGGCAGT CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA CCAGCTTGT   CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA AGCTGAAT    CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA GCCAATAAGT  CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA CGGCCACCAGT CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA ATTGGCGGT   CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA TAATTGTT    CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA CTAACCTAT   CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA AACCGGACAGT CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA TCGGTTCGGT  CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA GGTTAAGT    CATG
+#
+#   Bottom oligos:
+#
+#     Codeword
+#  5-----------|------------------------------>3'
+#    ACTGGATCAA TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#   ACTGCCTGATC TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#     ACAAGCTGG TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#      ATTCAGCT TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#    ACTTATTGGC TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#   ACTGGTGGCCG TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#     ACCGCCAAT TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#      AACAATTA TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#     ATAGGTTAG TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#   ACTGTCCGGTT TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#    ACCGAACCGA TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#      ACTTAACC TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#
+#
+# In addition, we need the amplification primers. P1 can have an index. I will order 4 different
+# P1 primers with different indices:
+#
+# P1.1                    CTTGAGTC
+# CAAGCAGAAGACGGCATACGAGATCTTGAGTCGTGACTGGAGTTCAGACGTGTGCTCTTCCGA
+#
+# P1.2                    GAACGCTG
+# CAAGCAGAAGACGGCATACGAGATGAACGCTGGTGACTGGAGTTCAGACGTGTGCTCTTCCGA
+#
+# P1.3                    GCCAGGTT
+# CAAGCAGAAGACGGCATACGAGATGCCAGGTTGTGACTGGAGTTCAGACGTGTGCTCTTCCGA
+#
+# P1.4                    GCGTTAGC
+# CAAGCAGAAGACGGCATACGAGATGCGTTAGCGTGACTGGAGTTCAGACGTGTGCTCTTCCGA
+#
+# P2
+# AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGA
+#
+# Sequencing primer R1
+# ACACTCTTTCCCTACACGACGCTCTTCCG*A
+#
+# Sequencing primer R2
+# GTGACTGGAGTTCAGACGTGTGCTCTTCCG*A

@@ -68,14 +68,28 @@ fi
 # NspI-adapters
 # =============
 #
-# P2      5-AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGA-3
-#                                  5-ACACTCTTTCCCTACACGACGCTCTTCCGAXXXXXXXYCATG-3
-#                                      |||      |        ||||||||||||||||||
-#                                 3-CACTGACCTCAAGTCTGCACACGAGAAGGCTxxxxxxxR-5
+# P2         5-AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGA-3
+#                                     5-ACACTCTTTCCCTACACGACGCTCTTCCGAXXXXXXXTCATG-3
+#                                         |||      |        ||||||||||||||||||
+#                                    3-CACTGACCTCAAGTCTGCACACGAGAAGGCTxxxxxxxA-5
+#                                      |||||||||||||||||||||||||||||||
+# P1 5-CAAGCAGAAGACGGCATACGAGATYYYYYYYYGTGACTGGAGTTCAGACGTGTGCTCTTCCGA-3->
+#
+#                                       ACACTCTTTCCCTACACGACGCTCTTCCG*A
+#                                                                                                                P1
+# P2         5-AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGA-3                                     <-3-AGCCTTCTCGTGTGCAGACTTGAGGTCAGTGYYYYYYYYTAGAGCATACGGCAGAAGACGAAC-5
+#                                                                                                                |||||||||||||||||||||||||||||||
+#                                     5-ACACTCTTTCCCTACACGACGCTCTTCCGAXXXXXXXTCATGNNNNNNNNNNNNNNNNNNNCATGAxxxxxxxTCGGAAGAGCACACGTCTGAACTCCAGTCAC-3
+#                                         |||      |        |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||               ||
+#                                    3-CACTGACCTCAAGTCTGCACACGAGAAGGCTxxxxxxxAGTACNNNNNNNNNNNNNNNNNNNGTACTXXXXXXXAGCCTTCTCGCAGCACATCCCTTTCTCACA-5
+#                                      |||||||||||||||||||||||||||||||
+# P1 5-CAAGCAGAAGACGGCATACGAGATYYYYYYYYGTGACTGGAGTTCAGACGTGTGCTCTTCCGA-3->                                     3-AGCCTTCTCGCAGCACATCCCTTTCTCACATCTAGAGCCACCAGCGGCATAGTAA-5
+#                                      GTGACTGGAGTTCAGACGTGTGCTCTTCCG*A
+
 #
 # The adapters are composed of a top and a bottom oligo. The top oligo has 30 constant
 # nucleotides, followed by an 8 nucleotides codeword, a sufix of 0 to 3 nucleotides and
-# the overhang that matxes that of the digested fragments. In order to avoid the regeneration
+# the overhang that matches that of the digested fragments. In order to avoid the regeneration
 # of the restriction site upon ligation of the adapters to the genomic fragments, the last
 # nuclotide before the overhang must be C or T. This will allow the secondary restriction
 # of chimeric fragments, or the simultaneous digestion and ligation.
@@ -194,7 +208,9 @@ fi
 
 PROCESSES=60
 #rm z*
-split -d --additional-suffix=.txt -n l/$PROCESSES oligos zoligos
+if [ ! -e oligos.mfold ] && [ ! -e oligos.exonerate ] && [ ! -e oligosdata ]; then
+   split -d --additional-suffix=.txt -n l/$PROCESSES oligos zoligos
+fi
 
 # In order to parallelize, I call mfold from the runmfold.sh script. Because
 # mfold produces output to /dev/tty, which cannot be redirected with conventional
@@ -247,7 +263,9 @@ if [ ! -e oligosdata ]; then
       cat zoligos*.exonerate > oligos.exonerate
       rm zoligos*.exonerate
    fi
-   paste oligos.mfold oligos.exonerate | cut -f 2-25,27- > oligosdata
+   # Note that both runexonerate.sh writes tab-separated files that start with
+   # '\tNA\t'. Thus, for 'cut' oligos.exonerate have two extra columns.
+   paste oligos.mfold oligos.exonerate | cut -f 1-25,28- > oligosdata
 #  rm oligos.mfold oligos.exonerate
 fi
 
@@ -268,11 +286,11 @@ if [ ! -e trace ]; then
       SUMDIMERS = 0
       THISMINENERGY = 0
       THISMAXDIMERS = 0
-      for (i = 1; i <= 24; i++) {
+      for (i = 2; i <= 25; i++) {
          SUMENERGY += $i
          if ($i < THISMINENERGY) THISMINENERGY = $i
       }
-      for (i = 25; i <= 48; i++) {
+      for (i = 26; i <= 49; i++) {
          SUMDIMERS += $i
          if ($i > THISMAXDIMERS) THISMAXDIMERS = $i
       }
@@ -289,4 +307,66 @@ if [ ! -e trace ]; then
    }' oligosdata > trace
 fi
 
-# The last row of file trace should have the name of the best set of oligos.
+# The last row of file trace should have the name of the best set of oligos. I paste
+# below the chosen set of oligos:
+#
+#   CODE2315.128
+#
+#   Top oligos:
+#                                   Codeword
+#  5------------------------------|-----------|--->3'
+#
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA TTGATCCAGT  CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA GATCAGGCAGT CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA CCAGCTTGT   CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA AGCTGAAT    CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA GCCAATAAGT  CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA CGGCCACCAGT CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA ATTGGCGGT   CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA TAATTGTT    CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA CTAACCTAT   CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA AACCGGACAGT CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA TCGGTTCGGT  CATG
+#   ACACTCTTTCCCTACACGACGCTCTTCCGA GGTTAAGT    CATG
+#
+#   Bottom oligos:
+#
+#     Codeword
+#  5-----------|------------------------------>3'
+#    ACTGGATCAA TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#   ACTGCCTGATC TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#     ACAAGCTGG TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#      ATTCAGCT TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#    ACTTATTGGC TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#   ACTGGTGGCCG TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#     ACCGCCAAT TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#      AACAATTA TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#     ATAGGTTAG TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#   ACTGTCCGGTT TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#    ACCGAACCGA TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#      ACTTAACC TCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#
+#
+# In addition, we need the amplification primers. P1 can have an index. I will order 4 different
+# P1 primers with different indices:
+#
+# P1.1                    CTTGAGTC
+# CAAGCAGAAGACGGCATACGAGATCTTGAGTCGTGACTGGAGTTCAGACGTGTGCTCTTCCGA
+#
+# P1.2                    GAACGCTG
+# CAAGCAGAAGACGGCATACGAGATGAACGCTGGTGACTGGAGTTCAGACGTGTGCTCTTCCGA
+#
+# P1.3                    GCCAGGTT
+# CAAGCAGAAGACGGCATACGAGATGCCAGGTTGTGACTGGAGTTCAGACGTGTGCTCTTCCGA
+#
+# P1.4                    GCGTTAGC
+# CAAGCAGAAGACGGCATACGAGATGCGTTAGCGTGACTGGAGTTCAGACGTGTGCTCTTCCGA
+#
+# P2
+# AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGA
+#
+# Sequencing primer R1
+# ACACTCTTTCCCTACACGACGCTCTTCCG*A
+#
+# Sequencing primer R2
+# GTGACTGGAGTTCAGACGTGTGCTCTTCCG*A

@@ -1,0 +1,76 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{booktabs}
+\usepackage{natbib}
+\usepackage{amsmath}
+\usepackage[colorlinks=true]{hyperref}
+\usepackage[official]{eurosym}
+\author{J. Ignacio Lucas Lledó}
+\title{Notes on the fly project}
+\begin{document}
+\maketitle
+\section{Delivery of oligonucleotides}
+The oligonucleotides designed on \href{https://github.com/IgnasiLucas/fly/tree/master/results/2016-06-09}{2016-06-09} were ordered to biomers.net, and delivered. They are dry. Table~\ref{tab:oligos} specifies the yield and the corresponding amount of buffer required to dilute them to 100 pmol/$\mu$l.
+
+\begin{table}
+\begin{center}
+\caption{Name and available amount (yield) of oligonucleotides received from biomers.net. `Volume' makes reference to the volume required to dissolve the corresponding oligonucleotides at 100 pmol/$\mu$l ($\mu$M).}\label{tab:oligos}
+\vspace*{0.3cm}
+\begin{tabular}{lrr|lrr}
+\toprule
+Name&Yield&Volume&Name&Yield&Volume\\
+&(nmol)&($\mu$l)&&(nmol)&($\mu$l)\\
+\midrule
+Top1.1&82.6&826&Bot1.1&64.8&648\\
+Top1.2&106.8&1068&Bot1.2&110.4&1104\\
+Top1.3&94.9&949&Bot1.3&92.6&926\\
+Top1.4&85.6&856&Bot1.4&75.8&758\\
+Top2.1&78.9&789&Bot2.1&90.7&907\\
+Top2.2&81.9&819&Bot2.2&97.4&974\\
+Top2.3&100.5&1005&Bot2.3&84.2&842\\
+Top2.4&88.4&884&Bot2.4&82.3&823\\
+Top3.1&98.6&986&Bot3.1&87.1&871\\
+Top3.2&95.2&952&Bot3.2&96.6&966\\
+Top3.3&100.2&1002&Bot3.3&87.9&879\\
+Top3.4&95.6&956&Bot3.4&78.7&787\\
+A1.1&60.2&602&A2&65.9&659\\
+A1.2&52.6&526&R1&78.7&787\\
+A1.3&56.7&566&R2&60.0&600\\
+A1.4&51.0&510&&&\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+\section{DNA extraction test}
+On September 13$^\mathrm{th}$ 2009, Dr. Carazo, Mrs. Sultanova, Mr. Andiç and I started the DNA extraction from 8 flies, following the \href{https://github.com/IgnasiLucas/fly/blob/master/doc/gbs.pdf}{GBS} protocol. Table~\ref{tab:flies} summarizes the procedure. Not that we needed 4 people to run this, but they all were interested in going through the protocol, which is great. The protocol is applied to each fly individually, with the aim of measuring how much DNA we can get from one fly. Four of the flies had their oviduct previously removed by Mrs. Sultanova. We want to make sure that the ovariectomy does not significantly reduce DNA yield.
+
+\begin{table}
+\begin{center}
+\caption{Summary of the DNA extraction test.}\label{tab:flies}
+\vspace*{0.3cm}
+\begin{tabular}{cccll}
+\toprule
+Sample&Treatment&Elution ($\mu$l)&Conc.(ng/$\mu$l)&Yield (ng)\\
+\midrule
+1&--&100&1.690&169\\
+2&--&100&0.590&59\\
+3&--&100&1.540&154\\
+4&--&100&0.574&57\\
+5&ovariectomy&100&0.752&75\\
+6&ovariectomy&100&1.850&185\\
+7&ovariectomy&100&0.314&31\\
+8&ovariectomy&100&0.418&42\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+\section{Literature review}
+Original motivation of classic life span QTL mapping studies was the elucidation of metabolic pathways involved in aging \cite{Nuzhdin2005}. I suspect that the biomedical interest in the mechanisms of aging preceded the interest in naturally occurring variation, as well as the real effect of the QTL identified in natural conditions. Several sex-specific life span QTL exist in autosomes of \emph{D. melanogaster} \cite{Nuzhdin1997,Pasyukova2000}. These QTL were originally identified using recombinant inbred lines (RIL) descended from two strains \cite{Nuzhdin1997}. In this design, the dominance of the QTL is not known, since only homozygous genotypes are produced \cite[][page 432]{Lynch1998}. However, the quantitative complementation test with deficencies used to refine the QTL \cite{Pasyukova2000} seems to assume that one of the alleles is at least partially recessive.
+
+Crow \cite{Crow2008} mentions the genetic basis of heterosis as one of the main mid-century controversies in population genetics. He is very clear that the debate between dominance and overdominance was resolved in favor of the dominance hypothesis. That is, both the inbreeding depression and the hybrid vigor (heterosis) are mostly due to recessive deleterious alleles that become either expressed upon inbreeding or concealed upon hybridization. A review \cite{Charlesworth2009} cites another work by James F. Crow that I cannot access (volume 9 of the Oxford Series in Evolutionary Biology), in which the author shows evidence of 30\% of autosomes isolated from natural populations of \emph{D. melanogaster} being lethal in homozygosis. The same cannot be true for sex chromosomes, of course. Among the 70\% of natural chromosomes that are not recessive lethals, homozygosity reduces survival to adulthood in 84\%.
+
+\end{document}
+

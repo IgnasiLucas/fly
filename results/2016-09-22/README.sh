@@ -11,23 +11,27 @@
 # functions in sex chromosomes.
 #
 
-if [ ! -e inbreeding_coefficient.png ]; then
+if [ ! -e F.png ]; then
    if [ ! -e noIBD_tracts.txt ]; then
       python fullsib.py > noIBD_tracts.txt
    fi
    if [ ! -e F.txt ]; then
-      gawk 'BEGIN{
-         print "Gen\tInd\tF"
-      }(/^Gen/){
-         split($1,A,/_|:/)
-         F0 = length($2)
-         split($2,LOCI,"")
-         F = F0
-         for (locus in LOCI) {
-            F = F - LOCI[locus]
-         }
-         print A[2] "\t" A[4] "\t" F/F0
-      }' noIBD_tracts.txt > F.txt
+      gawk -f summarize.awk noIBD_tracts.txt > F.txt
    fi
-#   R --no-save < plot_F.R
+   R --no-save < plot_F.R
 fi
+
+# With equal recombination rates in males and females:
+
+if [ ! -d equalRates ]; then mkdir equalRates; fi
+
+if [ ! -e equalRates/F.png ]; then
+   if [ ! -e equalRates/noIBD_tracts.txt ]; then
+      python fullsib_equal_rates.py > equalRates/noIBD_tracts.txt
+   fi
+   if [ ! -e equalRates/F.txt ]; then
+      gawk -f summarize.awk equalRates/noIBD_tracts.txt > equalRates/F.txt
+   fi
+   R --no-save < plot_F_equal_rates.R
+fi
+

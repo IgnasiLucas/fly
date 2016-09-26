@@ -1,4 +1,6 @@
 data
+.RData
+.Rhistory
 results/2016-04-12/AACGTT/
 results/2016-04-12/AAGCTT/
 results/2016-04-12/ACCGGT/
@@ -122,3 +124,6 @@ results/2016-06-09/readme.err
 results/2016-06-09/readme.log
 results/2016-09-22/noIBD_tracts.txt
 results/2016-09-22/F.txt
+results/2016-09-22/equalRates/F.txt
+results/2016-09-22/equalRates/noIBD_tracts.txt
+

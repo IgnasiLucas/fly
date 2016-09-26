@@ -45,7 +45,7 @@ simu.evolve(
       subPopSize = 2,
       sexMode = (NUM_OF_MALES, 1),
       ops = [
-         sexSpecificRecombinator(rates = 0.0001, maleRates = 0),
+         sexSpecificRecombinator(rates = 0.0001, maleRates = 0.0001),
          ParentsTagger()
       ]
    ),

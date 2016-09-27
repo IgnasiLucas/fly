@@ -1,3 +1,4 @@
+library(RColorBrewer)
 ibd <- read.table('equalRates/F.txt', header=TRUE)
 attach(ibd)
 
@@ -19,3 +20,9 @@ boxplot(F1 ~ Gen, xlab="Generation", ylab="Inbreeding coefficient", main="Equal 
 lines(c(1:20), AverageF[,2], col="red", lwd = 2)
 lines(c(1:20), TheoreticalF, col="blue", lwd = 2)
 dev.off()
+
+png(filename="equalRates/NumberTracts.png", width=1000, height=1000)
+par(mex=2, cex.axis=2, cex.lab=2, cex.main=2)
+barplot(table(N.Tracts.1, Gen), col=brewer.pal(9,'YlOrRd'), xlab="Generations", ylab="Frequency", main="Number of heterogenic tracts")
+dev.off()
+

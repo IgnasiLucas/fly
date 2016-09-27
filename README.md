@@ -10,6 +10,15 @@ in updating the GBS protocol, I will prepare a pilot experiment.
 As usual, below I explain the goal of the analyses run in each folder, in reverse
 chronological order.
 
+2016-09-22
+==========
+I use simuPop to simulate 20 generations of full-sib mating, and estimate the effect of
+inbreeding on the tracts of an autosome that are not identical by descent yet. The simulations
+reproduce the expected increase of inbreeding coeficient (F). However, the variance of F
+is high in general, and even higher in the absence of recombination in the male germline of
+Drosophila melanogaster. As a consequence of this variance, we expect almost 50% of flies
+inbred by full-sib mating for only 10 generations to be already completely homozygous.
+
 2016-06-09
 ==========
 Design of 12 adapters with in-line 8-nucloetide codewords, for use with restriction enzyme

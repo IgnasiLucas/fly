@@ -113,12 +113,12 @@ fi
 # of full-sib mating) than in the presence of male recombination (5% chance).
 #
 # It would be interesting to know what the situation is for the X chromosome. Since it must
-# spend not 50%, but 66.7% of its time in females, the variance in its inbreeding coefficient must
-# be even lower than that observed in autosomes under equal recombination rates between males
-# and females. Thus, along the inbreeding experiment, I expect some lines to turn accidentally
-# homozygous for one or even both autosomes before losing the heterozygosity in the X chromosome.
-# However, the presence of recessive lethals will make these cases look less frequent among
-# the surviving lines.
+# spend not 100%, but at least 66.7% of its time in females, the variance in its inbreeding coefficient must
+# be intermediate, between that observed in autosomes under equal recombination rates between males
+# and females and that observed in autosomes with null male recombination rate. Thus, along the
+# inbreeding experiment, I expect some lines to turn accidentally homozygous for at least one
+# autosomes before losing completely the heterozygosity in the X chromosome. However, the presence
+# of recessive lethals will make these cases look less frequent among the surviving lines.
 #
 #
 # References

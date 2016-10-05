@@ -6,6 +6,7 @@
 \usepackage{amsmath}
 \usepackage[colorlinks=true]{hyperref}
 \usepackage[official]{eurosym}
+\usepackage{graphicx}
 \author{J. Ignacio Lucas Lledó}
 \title{Notes on the fly project}
 \begin{document}
@@ -96,6 +97,96 @@ Sample&($\mu$l)&($\mu$l)&($\mu$l)&($\mu$l)&($\mu$l)\\
 3&80&207&32&1&320\\
 5&80&207&32&1&320\\
 6&80&207&32&1&320\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+\section{Literature review}
+From page 489 of \cite{White1973}: "The adaptive significance of achiasmatic meiosis is not entirely clear. Obviously it has been evolved repeatedly in at least ten major groups of animals. In those cases where achiasmatic meiosis is confined to one sex, we have far too little information as to the chiasma frequency in the other sex. If it were generally true that in the `chiasmatic sex' there is only one chiasma per bivalent, we might assume that selection for a low level of genetic recombination \emph{per se} had led to total loss of chiasmata in one sex. If, on the other hand, absence of chiasmata in one sex is generally accompanied by a fairly high chiasma frequency in the other, this explanation obviously would not hold. Only evidence from species that had acquired achiasmatic mechanisms fairly recently in their phylogeny would be significcant from this point of view (\emph{Tipula caesia} would be relevant -- \emph{Drosophila} spp. would not). The only evidence on this point seems to be the grasshopper \emph{Thericles whitei}, with no chiasmata in the male and a very low chiasma frequency in the female; it obviously supports the hypothesis of selection for low levels of recombination."
+
+However, selection for low levels of recombination would not explain why the achiasmatic sex is nearly always the heterogametic sex \cite{Burt1991}. White also mentions the hypothesis of achiamatic spermatogenesis being an adaptation to tolerate inversion-heterozygosity. However, no evidence supports this hypothesis.
+
+More recently, \cite{Lenormand2016} mentions two more hypotheses: first, that achiasmy may have evolved as a side effect of selection to suppress recombination between the sex chromosomes \cite{Haldane1922,Huxley1928}. And second, that it evolved as a way to promote tight linkage without suppressing recombination on the X or Z chromosome \cite{Lenormand2005}.
+
+Well, I cannot review now all the hypotheses now. If anything, I should relate the results of the simulations to the theoretical expectations of the variance in inbreeding coefficient \cite{Cockerman1968,Franklin1977}. It seems that multiple linked loci in sex chromosomes have received relatively little attention in the literature \cite{Bennett1963,Owen1988}.
+
+\section{Annealing of adapters}
+On September 28th, Muhammed and I prepared 100 ml of 1$\times$ TE buffer, following a recipe online: 1.0 ml 1M Tris pH 8.0, 0.2 ml EDTA 0.5M, and 98.8 ml H$_2$O. We also prepared annealing buffer, according to the protocol, and suspended all the oligonucleotides in TE buffer to 100 $\mu$M, according to the volume specified on table~\ref{tab:oligos}. Finally, we prepared 10 $\mu$l of annealed adapters of each type.
+
+\section{Quantification with Agilent Bioanalyser}
+Amparo Martínez, from the Sequencing Service, sent the results from the Bioanalyser run. The four samples have a very similar profile (Figure~\ref{fig:digestion}), which looks like the result of a successful digestion followed by a more aggressive selection of long fragments that I expected from a 1:1 ratio of magnetic beads to DNA. Next time, I should use a more generous proportion of beads. Table~\ref{tau:digestion} shows some additional details. I note that the amount of DNA available is now an order of magnitude lower than what I had for the \emph{Coregonus} samples.
+
+\begin{figure}
+\centering{\includegraphics[width=11cm]{images/Digestion.png}}
+\caption{Electropherograms from the high-sensitivity DNA assay of the four samples.}\label{fig:digestion}
+\end{figure}
+
+\begin{table}
+\begin{center}
+\caption{Distribution of DNA fragments between 40 and 9000 bp. `Size' refers to the average fragment size. For total mass of DNA left over, a volume of 35 $\mu$l is assumed to be left. The average fragment mass (Frag.Mass) is calculated in two ways. First, by dividing the overall concentration by the overall molarity (Frag.Mass.1); and then, by applying the formula for the molecular mass of double stranded DNA to the average length of the fragments (i.e., $607.4x+157.9$ g/mol; Frag.Mass.2).}\label{tau:digestion}
+\vspace*{0.3cm}
+\begin{tabular}{lrrrrrr}
+\toprule
+&Size&Conc.&Molarity&Left over&Frag.Mass.1&Frag.Mass.2\\
+Sample&(bp)&(pg/$\mu$l)&(pmol/l)&(ng)&(ng/fmol)&(ng/fmol)\\
+\midrule
+1&2206&1425.92&3042.0&49.91&0.468744&1.34008\\
+3&2239&1439.86&2484.9&50.40&0.579444&1.36013\\
+5&2022&1113.97&3509.8&38.99&0.317388&1.22832\\
+6&2376&1523.30&2066.7&53.32&0.737069&1.44334\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+\section{Ligation of adapters}
+In folder 2016-10-04, I calculate the composition of the ligation reactions to have a 10-fold excess of adapters to DNA fragment ends. On table~\ref{tau:working} I show the composition and final concentrations of the working solutions of the four adapters, required to prepare the ligation reactions specified on table~\ref{tau:ligation}. Importantly, I decide to assign adapters 1.1, 1.2, 1.3, and 1.4 to samples 1, 3, 5, and 6, respectively. See table~\ref{tau:codewords}. 
+
+\begin{table}
+\begin{center}
+\caption{Composition and final concentration of the working solutions of adapters for the ligation reactionson table~\ref{tau:ligation}. The buffer must be 1$\times$ annealing buffer. Amounts are $\mu$l, except the final molarity, in the last column, in pmol/$\mu$l.}\label{tau:working}
+\vspace*{0.2cm}
+\begin{tabular}{cccccc}
+\toprule
+Sample&Adapter&1$\times$ buffer&15 $\mu$M Stock&Total&pmol/$\mu$l\\
+\midrule
+1&1.1&8.580&1.420&10.00&2.13\\
+3&1.2&8.840&1.160&10.00&1.74\\
+5&1.3&8.362&1.638&10.00&2.46\\
+6&1.4&9.036&0.964&10.00&1.45\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+\begin{table}
+\caption{Volumes of reactants in the ligation reactions. All in $\mu$l. T4 ligase is at 2000000 U/ml.}\label{tau:ligation}
+\vspace*{0.2cm}
+\begin{tabular}{cccccccc}
+\toprule
+Sample&DNA&10$\times$ Buffer&Adapter&1.5 M NaCl&T4&H$_2$O&Total\\
+\midrule
+1&35&4.40&1.00&1.10&2.00&0.50&44.00\\
+3&35&4.40&1.00&1.10&2.00&0.50&44.00\\
+5&35&4.40&1.00&1.10&2.00&0.50&44.00\\
+6&35&4.40&1.00&1.10&2.00&0.50&44.00\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\begin{center}
+\caption{Adapters and codewords assigned to the DNA samples.}\label{tau:codewords}
+\vspace*{0.2cm}
+\begin{tabular}{ccl}
+\toprule
+Sample&Adapter&Codeword\\
+\midrule
+1&1.1&TTGATCCAGT\\
+3&1.2&GATCAGGCAGT\\
+5&1.3&CCAGCTTGT\\
+6&1.4&AGCTGAAT\\
 \bottomrule
 \end{tabular}
 \end{center}

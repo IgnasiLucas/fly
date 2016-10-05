@@ -17,7 +17,7 @@
 # that one cross over is expected per meiosis, I think. In simuPOP the recombination
 # rate between markers is the probability of a recombination happening there.
 # I set the rate to the reciprocal of the number of markers. I understand that
-# a recombination rate of 0.01 is equivalent to 1 cM. The average recombination
+# a recombination probability of 0.01 is equivalent to 1 cM. The average recombination
 # intensity in Drosophila is around 2 cM/Mb, in autosomes. Thus, on average a
 # 10 cM fragment is around 5 Mb.
 #

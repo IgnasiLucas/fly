@@ -1,0 +1,13 @@
+1.74 µM working solution of annealed adapter 1.2:
+   1X annealing buffer:     8.840 µl
+   15.00 µM adapter stock:  1.160 µl
+   Total volume            10.000 µl
+
+Ligation reaction for sample 3:
+   0.002 µM digested DNA:     35.000 µl
+   10X ligase buffer:          4.400 µl
+   1.739 µM adapter 1.2:       1.000 µl
+   1.5M (~40X) NaCl:           1.100 µl
+   T4 DNA ligase 2000000 U/ml: 2.000 µl
+   Water:                      0.500 µl
+   Total volume:              44.000 µl

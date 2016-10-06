@@ -66,7 +66,7 @@ You can consider skipping this step (see above).
 \begin{enumerate}
 \item Prepare twice as much 80\% ethanol as total DNA volume you have among all the tubes, or a bit more. Prepare at least 400 $\mu$l of 80\% ethanol per sample. If ethanol is 80\%, it does not need to be freshly prepared \cite{Bronner2009}.
 \item Vortex High Prep PCR beads thoroughly.
-\item Add beads in a 1.0:1 ratio\footnote{1.5 ratio would allow binding of short fragments as well. To remove even more short fragments, consider a 0.8:1 ratio.} to the restriction (or PCR) reaction and vortex well (30 s; or pipette mixing).
+\item Add beads in a 1.2:1 ratio\footnote{1.5 ratio would allow binding of short fragments as well. Last time, I used a 1:1 ratio, and I noticed absence of fragments below 200 bp, and a likely depletion of fragments below 1000 bp.} to the restriction (or PCR) reaction and vortex well (30 s; or pipette mixing).
 \item Incubate at room temperature for 5 min (or more; this is an important step) without shaking.
 \item Place tube on magnetic rack for 3 min, or until the solution is clear (the time depends on the volume of the solution).
 \item Remove supernatant carefully without disturbing the beads. Make sure you have NO beads in the pipet.
@@ -123,15 +123,16 @@ H$_2$O&88 $\mu$l&\\
 \end{enumerate}
 
 \begin{table}
-\caption{Volumes of reactants in the ligation reaction. All in $\mu$l. T4 ligase is at 2000000 U/ml.}\label{tau:ligation}
+\caption{Example of volumes of ligation reactions. All volumes are in $\mu$l. T4 ligase is at 2000000 U/ml.}\label{tau:ligation}
 \vspace*{0.2cm}
-\begin{tabular}{lrrrrrrr}
+\begin{tabular}{cccccccc}
 \toprule
-Sample&DNA&10$\times$ Buffer&Adapter&1.5 M NaCl&T4&Total\\
+Sample&DNA&10$\times$ Buffer&Adapter&1.5 M NaCl&T4&H$_2$O&Total\\
 \midrule
-&&&&&&\\
-&&&&&&\\
-&&&&&&\\
+1&35&4.40&1.00&1.10&2.00&0.50&44.00\\
+3&35&4.40&1.00&1.10&2.00&0.50&44.00\\
+5&35&4.40&1.00&1.10&2.00&0.50&44.00\\
+6&35&4.40&1.00&1.10&2.00&0.50&44.00\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -142,8 +143,11 @@ Following \cite{Etter2011}, I was planning to use NEB Buffer 2, supplemented wit
 \item Prepare a 1.5 M solution of NaCl in a 10 ml Falcon tube, using 10 ml H$_2$O and 0.87 g NaCl (molecular weight 58.44 g/mol).
 \item Add to the DNA samples the corresponding amounts of 10$\times$ T4 ligase reaction buffer, working stock of adapters, 1.5 M NaCl, and T4 DNA ligase (2000000 U/ml), according to table~\ref{tau:ligation}. Be sure to add the adapters to the reaction before the ligase, to prevent religation of the genomic DNA.
 \item Incubate the reaction at 16 $^{\circ}$C overnight (or at least 2 hours).
-\item Heat inactivate T4 DNA ligase for 10 min at 65 $^{\circ}$C. Allow reactions to cool slowly (2 $^{\circ}$C per 90 s, or 0.02$^{\circ}$C/s) to ambient temperature.
+\item Heat inactivate T4 DNA ligase for 10 min at 65 $^{\circ}$C. Allow reactions to cool slowly down (2 $^{\circ}$C per 90 s, or 0.02$^{\circ}$C/s) to room temperature.
 \end{enumerate}
+
+\section{Second digestion}
+Taking advantage of a smart adapter design, suggested by Sibelle Torres Vilaça (IGB, Berlin), that avoids the regeneration of the cut site, a second digestion with NspI will get rid of only chimeric fragments. The restriction enzyme NspI has 100\% activity in NEB buffer 2.1, which is very similar to the T4 DNA ligase reaction buffer. However, NspI would miss the 100 $\mu$g/ml BSA, absent in the ligase reaction buffer. Because I do not want to clean up the ligase reaction before the second digestion, I will bring the reaction volume from 44 $\mu$l to 50$\mu$l, by adding 5.0 $\mu$l of 10$\times$ CutSmart buffer and 1.0 $\mu$l of water. An alternative would be to dilute the ligation products further, to minimize the effect of the ligase buffer.
 
 \section{Clean up of ligation reactions}
 Before pooling the samples together, it is important to check that the ligation worked. Unfortunately, this involves another clean-up step, with magnetic beads (see above). If we did not clean the reaction, the excess of adapter dimers would dominate the fragment size distributions and the Bioanalyzer would not get precise measures in the size range of interest. This time, the ratio of beads to sample must be lower, 0.8:1, in order to remove as many adapter dimers as possible. Based on the results of the last Bioanalyzer run, the `elution' volumes must be calculated with the aim of leveling up (and optimizing) the concentrations of fragments \emph{in the desired size range} among samples.

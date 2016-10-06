@@ -7,6 +7,10 @@
 \usepackage[colorlinks=true]{hyperref}
 \usepackage[official]{eurosym}
 \usepackage{graphicx}
+\usepackage{rotating}
+\usepackage{color}
+\usepackage{fancyvrb}
+
 \author{J. Ignacio Lucas Lledó}
 \title{Notes on the fly project}
 \begin{document}
@@ -109,7 +113,7 @@ However, selection for low levels of recombination would not explain why the ach
 
 More recently, \cite{Lenormand2016} mentions two more hypotheses: first, that achiasmy may have evolved as a side effect of selection to suppress recombination between the sex chromosomes \cite{Haldane1922,Huxley1928}. And second, that it evolved as a way to promote tight linkage without suppressing recombination on the X or Z chromosome \cite{Lenormand2005}.
 
-Well, I cannot review now all the hypotheses now. If anything, I should relate the results of the simulations to the theoretical expectations of the variance in inbreeding coefficient \cite{Cockerman1968,Franklin1977}. It seems that multiple linked loci in sex chromosomes have received relatively little attention in the literature \cite{Bennett1963,Owen1988}.
+Well, I cannot review now all the hypotheses now. If anything, I should relate the results of the simulations to the theoretical expectations of the variance in inbreeding coefficient \cite{Cockerham1968,Franklin1977}. It seems that multiple linked loci in sex chromosomes have received relatively little attention in the literature \cite{Bennett1963,Owen1988}.
 
 \section{Annealing of adapters}
 On September 28th, Muhammed and I prepared 100 ml of 1$\times$ TE buffer, following a recipe online: 1.0 ml 1M Tris pH 8.0, 0.2 ml EDTA 0.5M, and 98.8 ml H$_2$O. We also prepared annealing buffer, according to the protocol, and suspended all the oligonucleotides in TE buffer to 100 $\mu$M, according to the volume specified on table~\ref{tab:oligos}. Finally, we prepared 10 $\mu$l of annealed adapters of each type.
@@ -192,6 +196,40 @@ Sample&Adapter&Codeword\\
 \end{center}
 \end{table}
 
+Just to have a graphic representation of the adapters and the expected DNA fragments, this is how they should look like after ligation (adapter 1.1 represented):
+\fvset{fontsize=\scriptsize,commandchars=\\\{\}}
+\begin{flushleft}
+\begin{tabular}{l}
+   \Verb+ ACACTCTTTCCCTACACGACGCTCTTCCGA\textcolor{red}{TTGATCCAGT}CATG\textcolor{blue}{YNNNNNNNNNNNRCATG}\textcolor{red}{ACTGGATCAA}TCGGAAGAGCACACGTCTGAACTCCAGTCAC+\\[-4pt]
+   \Verb+   |||      |        |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||        |      |||+\\[-10pt]
+   \begin{turn}{180}
+      \Verb+ACACTCTTTCCCTACACGACGCTCTTCCGA\textcolor{red}{TTGATCCAGT}CATG\textcolor{blue}{YNNNNNNNNNNNRCATG}\textcolor{red}{ACTGGATCAA}TCGGAAGAGCACACGTCTGAACTCCAGTCAC+
+   \end{turn}
+\\
+\end{tabular}
+\end{flushleft}
+
+The codeword is in red, and the genomic fragment in blue. Note that the restriction site, RCATGY, is not present in the ligation product (R is G or A, and Y is C or T). This allows me to digest a second time, and get rid of chimeric fragments.
+
+On October 5$^\mathrm{th}$, I prepared the working solution of the annealed adapters, and the following day I set up the ligation reaction. I then realized the available T4 DNA ligase was at 400000 U/ml, instead of 2000000 U/ml. I decided to double the amount of T4 ligase, and adjust the amount of buffer. I also noticed that sample 6 did not have more than 30 $\mu$l of DNA. Thus, I changed the composition of the reaction accordingly. However, I note that I used 1 $\mu$l of adapters at a slightly higher concentration than necessary to achive the 10-fold excess, because the working solution of adapters was already prepared, and I didn't want to re-calculate the whole thing. See table~\ref{tau:ligation2} for the current composition of the ligation reaction.
+
+\begin{table}
+\caption{Current composition of the ligation reaction, after necessary adjustments. All amounts are in $\mu$l. T4 ligase was actually at 400000 U/ml.}\label{tau:ligation2}
+\vspace*{0.2cm}
+\begin{tabular}{cccccccc}
+\toprule
+Sample&DNA&10$\times$ Buffer&Adapter&1.5 M NaCl&T4&H$_2$O&Total\\
+\midrule
+1&35&4.62&1.00&1.10&4.00&0.50&46.22\\
+3&35&4.62&1.00&1.10&4.00&0.50&46.22\\
+5&35&4.62&1.00&1.10&4.00&0.50&46.22\\
+6&30&4.02&1.00&1.10&4.00&0.25&40.37\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\bibliographystyle{abbrv}
+\bibliography{notes}
 
 \end{document}
 

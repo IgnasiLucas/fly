@@ -10,7 +10,7 @@
 #        -------------------------------------------------
  ADAPTER=(        1.1         1.2         1.3         1.4)
 CODEWORD=( TTGATCCAGT GATCAGGCAGT   CCAGCTTGT    AGCTGAAT)
-  VOLUME=(         35          35          35          35) # µl
+  VOLUME=(         35          35          35          30) # µl
  CONCENT=(    1.42592     1.43986     1.11397     1.52330) # ng / µl
 MOLARITY=(  0.0030420   0.0024849   0.0035098   0.0020667) # pmol / µl
    STOCK=(         15          15          15          15) # pmol / µl

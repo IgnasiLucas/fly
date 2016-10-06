@@ -66,7 +66,7 @@ LigationVolume = math.ceil((DNAvolume + 2 + AdapterVolRxn) / (1 - 1.0/10.0 - 1.0
 
 if args.outfile:
    with open(args.outfile, 'w') as f:
-      f.write('{:.2f} µM working solution of annealed adapter {}:\n'.format(WorkingMolarity, args.adapterid))
+      f.write('{:.3f} µM working solution of annealed adapter {}:\n'.format(WorkingMolarity, args.adapterid))
       f.write('   1X annealing buffer:    {:>6.3f} µl\n'.format(AnnealBufferVol))
       f.write('   {:.2f} µM adapter stock: {:>6.3f} µl\n'.format(StockMolarity, StockVolume))
       f.write('   Total volume            {:>6.3f} µl\n\n'.format(WorkingVolume))
@@ -79,7 +79,7 @@ if args.outfile:
       f.write('   Water:                     {:>6.3f} µl\n'.format(LigationVolume - (DNAvolume + LigationVolume / 10.0 + AdapterVolRxn + LigationVolume / 40 + 2.0)))
       f.write('   Total volume:              {:>6.3f} µl\n'.format(LigationVolume))
 else:
-      print('{:.2f} µM working solution of annealed adapter {}'.format(WorkingMolarity, args.adapterid))
+      print('{:.3f} µM working solution of annealed adapter {}'.format(WorkingMolarity, args.adapterid))
       print('   1X annealing buffer:    {:>6.3f} µl'.format(AnnealBufferVol))
       print('   {:.2f} µM adapter stock: {:>6.3f} µl'.format(StockMolarity, StockVolume))
       print('   Total volume            {:>6.3f} µl\n'.format(WorkingVolume))

@@ -228,6 +228,101 @@ Sample&DNA&10$\times$ Buffer&Adapter&1.5 M NaCl&T4&H$_2$O&Total\\
 \end{tabular}
 \end{table}
 
+\section{Second digestion}
+The second digestion is meant to break chimeric fragments. The adapters will not be cleaved because they were designed not to reproduce the cut site. I do not want to clean up the ligation reaction. In the worse case, I will not get rid of the chimeras. But I don't want to loose DNA. So, I count the total ligation volumes (table~\ref{tau:ligation2}) as DNA volumes in the second digestion reactions specified on table~\ref{tau:digestion2}.
+
+\begin{table}
+\begin{center}
+\caption{Second digestion reactions.}\label{tau:digestion2}
+\vspace*{0.3cm}
+\begin{tabular}{cccccc}
+\toprule
+      &DNA&H$_2$O&10$\times$ buffer&NspI&Total\\
+Sample&($\mu$l)&($\mu$l)&($\mu$l)&($\mu$l)&($\mu$l)\\
+\midrule
+1&46.22&119.17&18.49&1&184.88\\
+3&46.22&119.17&18.49&1&184.88\\
+5&46.22&119.17&18.49&1&184.88\\
+6&40.37&103.96&16.15&1&161.48\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+\section{Size selection}
+I plotted the expected shape of the electropherogram, using data from the in silico digestion with the pattern RCATGY (2016-04-12). The result, shown in figure~\ref{fig:expected}, is remarkably similar to the observed electropherograms after digestion (figure~\ref{fig:digestion})
+
+\begin{figure}
+\centering{\includegraphics[width=11cm]{../results/2016-04-12/electropherogram.png}}
+\caption{Electropherograms from the high-sensitivity DNA assay of the four samples.}\label{fig:expected}
+\end{figure}
+
+In any case, from those figures it is not immediate to know the number of loci in a size range. The use of magnetic beads for size selection is tricky, because very precise volumes need to be measured, some DNA is lost, and the range is wider and less reproducible than if selected with a Blue Pippin. So, wide size ranges are convenient in this case. Therefore, I should move the range in the direction of lower number of fragments, so that a tighter control in the number of fragments is possible. After looking at the ratios of beads to DNA required for each range, I realize I cannot aim at fragments just between 500 and 800 bp, but rather between 450 and 1000 bp. Because I will use 300 bp, paired end reads, I stick to this range. Finally, I use beads to sample ratios of 0.600 (right-side selection at $\sim900$ bp) and 0.645 (left-side selection at $\sim350$ bp. I expect less than 33000 loci, according to results from the 2016-04-12/RCATGY folder. Given that the total volumes are either 184.88 or 161.48 $\mu$l, this translates into the volumes specified on table~\ref{tau:sizeselection}. I will attempt elution with 30 $\mu$l or less.
+
+\begin{table}
+\begin{center}
+\caption{Volumes of DNA sample, bead suspension and ethanol to be added during right-side selection (Beads 1, 0.600:1 ratio), left-side selection (Beads 2; 0.645:1 ratio), and washing steps (ethanol). All in $\mu$l.}\label{tau:sizeselection}
+\vspace*{0.3cm}
+\begin{tabular}{ccccc}
+\toprule
+Samples&DNA&Beads 1&Beads 2&Ethanol\\
+\midrule
+1, 3, 5&184.88&110.93&8.32&$2\times 305.00$\\
+6&161.48&96.89&7.27&$2\times 305.00$\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table} 
+
+\section{Amplification PCR}
+After size selection I do not expect to have more than 2 ng of DNA per sample. I will not quantify before amplification, in order to save DNA and because I would not trust so small measures.
+
+\begin{table}
+\begin{center}
+\caption{Amplification primers}\label{tau:primers}
+\vspace*{0.2cm}
+\begin{tabular}{lccccc}
+\toprule
+&Primer 1a&Primer 1b&Primer 1c&Primer 1d&Primer 2\\
+\midrule
+Length (bp)&63&63&63&63&55\\
+Molecular weight (g/mol)&19511.7&19545.7&19536.7&19536.7&16719.9\\
+Basic T$_M$ First cycle ($^{\circ}$C)&65.7&65.7&65.7&65.7&64.4\\
+52 mM Na$^{+}$ T$_M$ 1$^{st}$ cycle ($^{\circ}$C)&75.0&75.0&75.0&75.0&73.3\\
+Basic T$_M$ Later cycles ($^{\circ}$C)&75.7&76.4&76.4&76.4&74.3\\
+52 mM Na$^{+}$ T$_M$ Later ($^{\circ}$C)&87.2&88.0&88.0&88.0&85.7\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+\begin{table}
+\begin{center}
+\caption{PCR reactions in 50 $\mu$l. 10 $\mu$l of 10 $\mu$M Primer Mix may be prepared with 1 $\mu$l 100 $\mu$M Primer 1 $+$ 1 $\mu$l 100 $\mu$M Primer 2 $+$ 8 $\mu$l nuclease-free water.}\label{tau:PCR}
+\vspace*{0.2cm}
+\begin{tabular}{lrr}
+\toprule
+Component&Volume ($\mu$l)&Final conc. (pmols/l)\\
+\midrule
+10 $\mu$M Primer Mix&1.0&200000.00\\
+Template DNA&15.2&580.24\\
+2$\times$ Phusion Master Mix&25.0&--\\
+Nuclease free water&8.8&--\\
+\midrule
+Total&50.0&\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+
+\section{Qubit quantification and pooling}
+
+\section{Bioanalyser quantification of pooled library}
+
+\section{Sequencing}
+
+
 \bibliographystyle{abbrv}
 \bibliography{notes}
 

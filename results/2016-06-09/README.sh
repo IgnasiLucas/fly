@@ -52,7 +52,7 @@ fi
 # 2011), even though it may not be necessary (Peterson et al. [2012] do not apply it), and it
 # forces me to use customized sequencing primers.
 #
-# I ordered two enzymes, NspI and HaeII, with different cut sites. I will design both sets of
+# I considered two enzymes, NspI and HaeII, with different cut sites. I will design both sets of
 # adapters, but eventually order only one (for NspI).
 #
 # +========+=========+==============+===========+

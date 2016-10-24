@@ -160,3 +160,24 @@ fi
 ##  echo -e "GDGCHC9\tGTGCTC|GAGCAC" >> patterns2 # same as GDGCHC1
 #fi
 
+# After choosing NspI, with pattern RCATGY, I want to plot the expected
+# shape of the spectrum of fragment sizes that the Bioanalyser produces.
+# I have to take care of two things: the sensitivity of the Bioanalyser is
+# limited, so that fragments within 5 or 10 bp difference may be plot as
+# a single point. And second, the fact that the signal is not only proportional
+# to number of fragments of a certain size, but also to their size. Thus,
+# from the list of fragment lengths, I need to produce kind of a histogram
+# of the number of base pairs accumulated within each size class, with
+# bins of either 5 or 10 bp.
+
+if [ ! -e RCATGY/electropherogram.png ]; then
+   if [ ! -e RCATGY/bp.txt ]; then
+      # BIN is the rounding to multiples of 15 of the fragment length
+      gawk '{BIN = 15 * sprintf("%0.f", $1/15)
+         BP[BIN] += $1
+      }END{
+         for (bin in BP) print bin "\t" BP[bin]
+      }' RCATGY/lengths | sort -nk 1 > RCATGY/bp.txt
+   fi
+   R --no-save < electropherogram.R
+fi

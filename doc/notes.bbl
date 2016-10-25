@@ -1,89 +1,114 @@
-\begin{thebibliography}{10}
+\begin{thebibliography}{18}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
 
-\bibitem{Bennett1963}
+\bibitem[Bennett(1963)]{Bennett1963}
 J.~Bennett.
 \newblock Random {Mating} and {Sex} {Linkage}.
-\newblock {\em J. Theor. Biol.}, 4(1):28--\&, 1963.
+\newblock \emph{J. Theor. Biol.}, 4\penalty0 (1):\penalty0 28--\&, 1963.
 
-\bibitem{Burt1991}
+\bibitem[Burt et~al.(1991)Burt, Bell, and Harvey]{Burt1991}
 A.~Burt, G.~Bell, and P.~Harvey.
 \newblock Sex-{Differences} in {Recombination}.
-\newblock {\em J. Evol. Biol.}, 4(2):259--277, 1991.
+\newblock \emph{J. Evol. Biol.}, 4\penalty0 (2):\penalty0 259--277, 1991.
 
-\bibitem{Charlesworth2009}
+\bibitem[Charlesworth and Willis(2009)]{Charlesworth2009}
 D.~Charlesworth and J.~H. Willis.
 \newblock {FUNDAMENTAL} {CONCEPTS} {IN} {GENETICS} {The} genetics of inbreeding
   depression.
-\newblock {\em Nat. Rev. Genet.}, 10(11):783--796, Nov. 2009.
+\newblock \emph{Nat. Rev. Genet.}, 10\penalty0 (11):\penalty0 783--796, Nov.
+  2009.
 
-\bibitem{Cockerham1968}
+\bibitem[Cockerham and Weir(1968)]{Cockerham1968}
 C.~C. Cockerham and B.~S. Weir.
 \newblock Sib {Mating} with {Two} {Linked} {Loci}.
-\newblock {\em Genetics}, 60(3):629--640, Nov. 1968.
+\newblock \emph{Genetics}, 60\penalty0 (3):\penalty0 629--640, Nov. 1968.
 
-\bibitem{Crow2008}
+\bibitem[Crow(2008)]{Crow2008}
 J.~F. Crow.
 \newblock Mid-{Century} {Controversies} in {Population} {Genetics}.
-\newblock {\em Annu. Rev. Genet.}, 42(1):1--16, Nov. 2008.
+\newblock \emph{Annu. Rev. Genet.}, 42\penalty0 (1):\penalty0 1--16, Nov. 2008.
 
-\bibitem{Franklin1977}
+\bibitem[Franklin(1977)]{Franklin1977}
 I.~R. Franklin.
 \newblock The distribution of the proportion of the genome which is homozygous
   by descent in inbred individuals.
-\newblock {\em Theoretical Population Biology}, 11(1):60--80, Feb. 1977.
+\newblock \emph{Theoretical Population Biology}, 11\penalty0 (1):\penalty0
+  60--80, Feb. 1977.
 
-\bibitem{Haldane1922}
+\bibitem[Haldane(1922)]{Haldane1922}
 J.~B.~S. Haldane.
 \newblock Sex ratio and unisexual sterility in hybrid animals.
-\newblock {\em Journ. of Gen.}, 12(2):101--109, 1922.
+\newblock \emph{Journ. of Gen.}, 12\penalty0 (2):\penalty0 101--109, 1922.
 
-\bibitem{Huxley1928}
+\bibitem[Huxley(1928)]{Huxley1928}
 J.~S. Huxley.
 \newblock Sexual difference of linkage {inGammarus} chevreuxi.
-\newblock {\em Journ. of Gen.}, 20(2):145--156, 1928.
+\newblock \emph{Journ. of Gen.}, 20\penalty0 (2):\penalty0 145--156, 1928.
 
-\bibitem{Lenormand2005}
+\bibitem[Kibbe(2007)]{Kibbe2007}
+W.~A. Kibbe.
+\newblock {OligoCalc}: an online oligonucleotide properties calculator.
+\newblock \emph{Nucl. Acids Res.}, 35\penalty0 (suppl 2):\penalty0 W43--W46,
+  July 2007.
+
+\bibitem[Lenormand and Dutheil(2005)]{Lenormand2005}
 T.~Lenormand and J.~Dutheil.
 \newblock Recombination {Difference} between {Sexes}: {A} {Role} for {Haploid}
   {Selection}.
-\newblock {\em PLOS Biol}, 3(3):e63, Feb. 2005.
+\newblock \emph{PLOS Biol}, 3\penalty0 (3):\penalty0 e63, Feb. 2005.
 
-\bibitem{Lenormand2016}
+\bibitem[Lenormand et~al.(2016)Lenormand, Engelstädter, Johnston, Wijnker, and
+  Haag]{Lenormand2016}
 T.~Lenormand, J.~Engelstädter, S.~E. Johnston, E.~Wijnker, and C.~R. Haag.
 \newblock Evolutionary mysteries in meiosis.
-\newblock {\em bioRxiv}, page 050831, Apr. 2016.
+\newblock \emph{bioRxiv}, page 050831, Apr. 2016.
 
-\bibitem{Lynch1998}
+\bibitem[Lynch and Walsh(1998)]{Lynch1998}
 M.~Lynch and B.~Walsh.
-\newblock {\em Genetics and analysis of quantitative traits}.
+\newblock \emph{Genetics and analysis of quantitative traits}.
 \newblock Sinauer Associates, Inc., Sunderland, MA, 1998.
+\newblock ISBN 0-87893-481-2.
 
-\bibitem{Nuzhdin2005}
-S.~V. Nuzhdin, A.~A. Khazaeli, and J.~W. Curtsinger.
-\newblock Survival {Analysis} of {Life} {Span} {Quantitative} {Trait} {Loci} in
-  {Drosophila} melanogaster.
-\newblock {\em Genetics}, 170(2):719--731, June 2005.
+\bibitem[Meyer and Kircher(2010)]{Meyer2010}
+M.~Meyer and M.~Kircher.
+\newblock Illumina sequencing library preparation for highly multiplexed target
+  capture and sequencing.
+\newblock \emph{Cold Spring Harb Protoc}, 2010\penalty0 (6):\penalty0
+  pdb.prot5448, June 2010.
 
-\bibitem{Nuzhdin1997}
+\bibitem[Nuzhdin et~al.(1997)Nuzhdin, Pasyukova, Dilda, Zeng, and
+  Mackay]{Nuzhdin1997}
 S.~V. Nuzhdin, E.~G. Pasyukova, C.~L. Dilda, Z.-B. Zeng, and T.~F.~C. Mackay.
 \newblock Sex-specific quantitative trait loci affecting longevity in
   {Drosophila} melanogaster.
-\newblock {\em Proc Natl Acad Sci U S A}, 94(18):9734--9739, Sept. 1997.
+\newblock \emph{Proc Natl Acad Sci U S A}, 94\penalty0 (18):\penalty0
+  9734--9739, Sept. 1997.
 
-\bibitem{Owen1988}
+\bibitem[Nuzhdin et~al.(2005)Nuzhdin, Khazaeli, and Curtsinger]{Nuzhdin2005}
+S.~V. Nuzhdin, A.~A. Khazaeli, and J.~W. Curtsinger.
+\newblock Survival {Analysis} of {Life} {Span} {Quantitative} {Trait} {Loci} in
+  {Drosophila} melanogaster.
+\newblock \emph{Genetics}, 170\penalty0 (2):\penalty0 719--731, June 2005.
+
+\bibitem[Owen(1988)]{Owen1988}
 R.~Owen.
 \newblock Selection at two {Sex}-{Linked} {Loci}.
-\newblock {\em Heredity}, 60:415--425, June 1988.
+\newblock \emph{Heredity}, 60:\penalty0 415--425, June 1988.
 
-\bibitem{Pasyukova2000}
+\bibitem[Pasyukova et~al.(2000)Pasyukova, Vieira, and Mackay]{Pasyukova2000}
 E.~G. Pasyukova, C.~Vieira, and T.~F.~C. Mackay.
 \newblock Deficiency {Mapping} of {Quantitative} {Trait} {Loci} {Affecting}
   {Longevity} in {Drosophila} melanogaster.
-\newblock {\em Genetics}, 156(3):1129--1146, Nov. 2000.
+\newblock \emph{Genetics}, 156\penalty0 (3):\penalty0 1129--1146, Nov. 2000.
 
-\bibitem{White1973}
+\bibitem[White(1973)]{White1973}
 M.~White.
-\newblock {\em Animal cytology and evolution}.
+\newblock \emph{Animal cytology and evolution}.
 \newblock Cambridge University Press, London, 3rd edition edition, 1973.
+\newblock ISBN 0 521 07071 6.
 
 \end{thebibliography}

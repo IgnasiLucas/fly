@@ -1,3 +1,4 @@
+.gitignore
 data
 .RData
 .Rhistory
@@ -135,4 +136,4 @@ doc/notes.blg
 doc/CleanPCR Brochure v002 _ 20150317.pdf
 doc/CleanPCR User Manual v1.02.pdf
 doc/OfertaNucleoMagCultek.pdf
-
+IgnasiLucas_Libr_High Sensitivity DNA Assay_DE04103391_2016-10-27_10-42-27.pdf

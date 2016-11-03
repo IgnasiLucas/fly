@@ -254,7 +254,7 @@ I plotted the expected shape of the electropherogram, using data from the in sil
 
 \begin{figure}
 \centering{\includegraphics[width=11cm]{../results/2016-04-12/electropherogram.png}}
-\caption{Electropherograms from the high-sensitivity DNA assay of the four samples.}\label{fig:expected}
+\caption{Expected shape of the electropherogram of digested DNA.}\label{fig:expected}
 \end{figure}
 
 In any case, from those figures it is not immediate to know the number of loci in a size range. The use of magnetic beads for size selection is tricky, because very precise volumes need to be measured, some DNA is lost, and the range is wider and less reproducible than if selected with a Blue Pippin. So, wide size ranges are convenient in this case. Therefore, I should move the range in the direction of lower number of fragments, so that a tighter control in the number of fragments is possible. After looking at the ratios of beads to DNA required for each range, I realize I cannot aim at fragments just between 500 and 800 bp, but rather between 450 and 1000 bp. Because I will use 300 bp, paired end reads, I stick to this range. Finally, I use beads to sample ratios of 0.600 (right-side selection at $\sim900$ bp) and 0.645 (left-side selection at $\sim350$ bp. I expect less than 33000 loci, according to results from the 2016-04-12/RCATGY folder. Given that the total volumes are either 184.88 or 161.48 $\mu$l, this translates into the volumes specified on table~\ref{tau:sizeselection}. I elute with 10 $\mu$l.
@@ -371,12 +371,14 @@ On October 27\textsuperscript{th}, A. Martínez sent me the electropherograms, s
 
 \begin{figure}
 \centering{\includegraphics[width=9cm]{images/size_selection_1.png}}
-\caption{Electropherograms from the high-sensitivity DNA assay of the four samples after size selection and PCR amplification.}\label{fig:expected}
+\caption{Electropherograms from the high-sensitivity DNA assay of the four samples after size selection and PCR amplification.}\label{fig:sizeselection}
 \end{figure}
 
 
 \section{Second size selection of samples 3, 5, and 6. November 3, 2016}
-I need to remove the large DNA fragments (right-side size selection). I will use the same suspesion to DNA ratio used before for right-side selection, namely 0.600:1. I have 9 $\mu$l left of each sample, which means I should use 5.4 $\mu$l of CleanPCR suspension to trap the large fragments and leave the small ones in the supernatant. Unfortunately, the supernatant will contain polyethylene glycol (PEG) and salt. Thus, I need to also apply a second load of suspension be able to elute the DNA in water. The second ratio does not need to be very tight, just to remove the very small primers that may be left over. Thus, in order to optimize the yield of small fragments, I will set it to 0.9:1. This translates in 2.7 additional $\mu$l of the CleanPCR suspension. 
+I need to remove the large DNA fragments (right-side size selection). I will use the same suspesion to DNA ratio used before for right-side selection, namely 0.600:1. I have 9 $\mu$l left of each sample, which means I should use 5.4 $\mu$l of CleanPCR suspension to trap the large fragments and leave the small ones in the supernatant. Unfortunately, the supernatant will contain polyethylene glycol (PEG) and salt. Thus, I need to also apply a second load of suspension be able to elute the DNA in water. The second ratio does not need to be very tight, just to remove the very small primers that may be left over. Thus, in order to optimize the yield of small fragments, I will set it to 0.9:1. This translates in 2.7 additional $\mu$l of the CleanPCR suspension.
+
+I performed the second size selection on samples 3, 5, and 6 without problems. I also run the amplification PCR just as the first one. I did change pipette tips. The FisherBrand tips that I was testing did not fit well the pipette, and were not accurate. The VWR tips work better with my pipettes (Nichipet EX II).
 
 
 \bibliographystyle{abbrvnat}

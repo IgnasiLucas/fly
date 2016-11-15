@@ -10,6 +10,7 @@
 \usepackage{rotating}
 \usepackage{color}
 \usepackage{fancyvrb}
+\usepackage{pdflscape}
 
 \author{J. Ignacio Lucas Lledó}
 \title{Notes on the fly project}
@@ -384,11 +385,85 @@ On November 8\textsuperscript{th}, A.M. sent the results of the Bioanalyzer post
 
 \begin{figure}
 \centering{\includegraphics[width=9cm]{images/size_selection_2.png}}
-\caption{Electropherograms from the HS DNA assay of the four samples after the second size selection performed on samples 3, 5, and 6. We did not get rid of the the large fragments, and the primers also show up, because I failed to clean up the PCR reaction.}\label{fig:sizeselection2}
+\caption{Electropherograms from the HS DNA assays after the second size selection performed on samples 3, 5, and 6. We did not get rid of the the large fragments, and the primers also show up, because I failed to clean up the PCR reaction.}\label{fig:sizeselection2}
 \end{figure}
 
 \section{Third attempt of size selection with samples 3, 5, and 6. November 9\textsuperscript{th}}
 I had original DNA volume of 24.0 $\mu$l: the PCR product minus 1 $\mu$l used in the HS DNA chip. I added 16.0 $\mu$l of H$_2$O (total DNA volume of 40.0 $\mu$l), in order to make sure that there would be enough magnetic beads in suspension to adsorbe all the large DNA fragments. As before, I used a 0.6:1 bead suspension to DNA ratio for right-side selection, and a 0.645:1 ratio for left-side selection. That amounts to 24.0 $\mu$l of beads first, plus 1.8 $\mu$l afterwards. I eluted with 17.75 $\mu$l of water, instead of 10.0, in order to save the pipetting of 7.75 $\mu$l of water for the PCR.
+
+On November 14, A.M. sent the results of the Bioanalyser (figure~\ref{fig:sizeselection3}). This time, the libraries have enough DNA and in an acceptable size range. Obviously, after so many rounds of PCR, I expect samples 3, 5, and 6 to have a terrible bias. Still, I will go ahead with the sequencing, in order to estimate the number of fragments sequenced at least from sample 1, and to compare them to the expectation.
+
+\begin{figure}
+\centering{\includegraphics[width=9cm]{images/size_selection_3.png}}
+\caption{Electropherograms from the HS DNA assay of samples 3, 5, and 6, after the third round of size selection. This time, it seems to have worked, despite of a shift to the left, with respect to sample 1.}\label{fig:sizeselection2}
+\end{figure}
+
+\section{Preparation of sequencing primers. November 15\textsuperscript{th}}
+A.M. requests 600 $\mu$l of 0.5 $\mu$M sequencing primers (300 pmol). In addition, she asked about the indexing primer. I had assumed it would be just the standard one. In fact, the TruSeq `Multiplexing Index Read Sequencin Primer' is two nucleotides longer than what I need. Fortunately, the two extra nucleotides are in 5', and will not prevent correct priming (see representation below).
+
+I prepare 1 ml of each sequencing primer at 5 $\mu$M, which is equivalent to 5000 pmol. The primers are at 100 $\mu$M. Thus, the dilution factor is 20, which means that I need $1000/20=50$ $\mu$l of primer and 950 $\mu$l of water.
+
+\begin{landscape}
+\fvset{fontsize=\tiny,commandchars=\\\{\}}
+\begin{flushleft}
+\begin{tabular}{l}
+   \hspace{0.8cm}\scriptsize{Amplification primer 2:}\\[-6pt]
+   \Verb+        AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGA+ \hspace{4.3cm} \scriptsize{Amplification primer 1:}\\[-8pt]
+   \begin{turn}{180}
+      \Verb+CAAGCAGAAGACGGCATACGAGAT\textcolor{green}{CTTGAGTC}GTGACTGGAGTTCAGACGTGTGCTCTTCCGA                                                                                                        +
+   \end{turn}\\[-4pt]
+   \Verb+                                                                                                        |||||||||||||||||||||||||||||||+\\[-8pt]
+   \Verb+                                 ACACTCTTTCCCTACACGACGCTCTTCCGA\textcolor{red}{TTGATCCAGT}CATG\textcolor{blue}{YNNNNNNNNNNNRCATG}\textcolor{red}{ACTGGATCAA}TCGGAAGAGCACACGTCTGAACTCCAGTCAC+\\[-8pt]
+   \Verb+                                   |||      |        |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||        |      |||+\\[-12pt]
+   \begin{turn}{180}
+      \Verb+ACACTCTTTCCCTACACGACGCTCTTCCGA\textcolor{red}{TTGATCCAGT}CATG\textcolor{blue}{YNNNNNNNNNNNRCATG}\textcolor{red}{ACTGGATCAA}TCGGAAGAGCACACGTCTGAACTCCAGTCAC                                +
+   \end{turn}\\[-4pt]
+   \Verb+                                |||||||||||||||||||||||||||||||+\\[-8pt]
+   \Verb+CAAGCAGAAGACGGCATACGAGAT\textcolor{green}{CTTGAGTC}GTGACTGGAGTTCAGACGTGTGCTCTTCCGA+\\[-4pt]
+   \begin{turn}{180}
+      \Verb+AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGA                                                                                                        +
+   \end{turn}\\[-8pt]
+\end{tabular}
+
+\vspace{3cm}
+
+\begin{tabular}{l}
+
+   \Verb+        AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGA+\\[-8pt]
+   \Verb+                                 ||||||||||||||||||||||||||||||+\\[-12pt]
+   \begin{turn}{180}
+      \Verb+CAAGCAGAAGACGGCATACGAGAT\textcolor{green}{CTTGAGTC}GTGACTGGAGTTCAGACGTGTGCTCTTCCGA\textcolor{red}{TTGATCCAGT}\textcolor{blue}{CATGYNNNNNNNNNNNRCATG}\textcolor{red}{ACTGGATCAA}TCGGAAGAGCGTCGTGTAGGGAAAGAGTGT                                 +
+   \end{turn}\\[-4pt]
+   \Verb+                                 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||+\\[-8pt]
+   \Verb+                                 ACACTCTTTCCCTACACGACGCTCTTCCGA\textcolor{red}{TTGATCCAGT}CATG\textcolor{blue}{YNNNNNNNNNNNRCATG}\textcolor{red}{ACTGGATCAA}TCGGAAGAGCACACGTCTGAACTCCAGTCAC\textcolor{green}{GACTCAAG}ATCTCGTATGCCGTCTTCTGCTTG+\\
+   \begin{turn}{180}
+      \Verb+ACACTCTTTCCCTACACGACGCTCTTCCGA\textcolor{red}{TTGATCCAGT}CATG\textcolor{blue}{YNNNNNNNNNNNRCATG}\textcolor{red}{ACTGGATCAA}TCGGAAGAGCACACGTCTGAACTCCAGTCAC\textcolor{green}{GACTCAAG}ATCTCGTATGCCGTCTTCTGCTTG+
+   \end{turn}\\[-4pt]
+   \Verb+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||+\\[-8pt]
+   \Verb+CAAGCAGAAGACGGCATACGAGAT\textcolor{green}{CTTGAGTC}GTGACTGGAGTTCAGACGTGTGCTCTTCCGA\textcolor{red}{TTGATCCAGT}\textcolor{blue}{CATGYNNNNNNNNNNNRCATG}\textcolor{red}{ACTGGATCAA}TCGGAAGAGCGTCGTGTAGGGAAAGAGTGT+\\[-8pt]
+   \Verb+                                                                                                        ||||||||||||||||||||||||||||||+\\[-12pt]
+   \begin{turn}{180}
+      \Verb+AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGA                                                                                                        +
+   \end{turn}\\[-8pt]
+\end{tabular}
+
+\vspace{3cm}
+\begin{tabular}{l}
+   \hspace{4cm}\scriptsize{Sequencing primer 1}\hspace{5cm}\scriptsize{TruSeq Indexing primer}\\[-4pt]
+   \Verb+                                 ACACTCTTTCCCTACACGACGCTCTTCCGA                                       GATCGGAAGAGCACACGTCTGAACTCCAGTCAC+\\[-4pt]
+   \Verb+        AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGA\textcolor{red}{TTGATCCAGT}\textcolor{blue}{CATGYNNNNNNNNNNNRCATG}\textcolor{red}{ACTGGATCAA}TCGGAAGAGCACACGTCTGAACTCCAGTCAC\textcolor{green}{GACTCAAG}ATCTCGTATGCCGTCTTCTGCTTG+\\[-8pt]
+   \Verb+        |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||+\\[-12pt]
+   \begin{turn}{180}
+      \Verb+CAAGCAGAAGACGGCATACGAGAT\textcolor{green}{CTTGAGTC}GTGACTGGAGTTCAGACGTGTGCTCTTCCGA\textcolor{red}{TTGATCCAGT}\textcolor{blue}{CATGYNNNNNNNNNNNRCATG}\textcolor{red}{ACTGGATCAA}TCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT        +
+   \end{turn}\\[-4pt]
+   \begin{turn}{180}
+      \Verb+GTGACTGGAGTTCAGACGTGTGCTCTTCCGA                                                                                                        +
+   \end{turn}\\
+   \hspace{12cm}\scriptsize{Sequencing primer 2}\\
+
+\end{tabular}
+\end{flushleft}
+\end{landscape}
 
 \bibliographystyle{abbrvnat}
 \bibliography{notes}

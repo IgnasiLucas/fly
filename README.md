@@ -10,6 +10,22 @@ in updating the GBS protocol, I will prepare a pilot experiment.
 As usual, below I explain the goal of the analyses run in each folder, in reverse
 chronological order.
 
+2016-11-28
+==========
+Merged paired reads, trimmed adapters, and mapped them to the reference genome.
+
+
+2016-11-25
+==========
+Demultiplexed the fastq files provided by the sequencing center. I am keeping track of the
+contradictions between the indices and the in-line barcode.
+
+
+2016-10-04
+==========
+The goal here is to calculate the composition of the ligation reactions, in order to have
+a 10 fold excess of adapters to fragment ends
+
 2016-09-22
 ==========
 I use simuPop to simulate 20 generations of full-sib mating, and estimate the effect of

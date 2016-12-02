@@ -38,7 +38,7 @@ fi
 
 for i in `seq 0 24`; do
    if [ ! -e merged/${NEWNAME[$i]}'_pear.log' ]; then
-      ./run_pear.sh ${SAMPLE[$i]} ${NEWNAME[$i]} >& ${NEWNAME[$i]}'_pear.log' &
+      ./run_pear.sh ${SAMPLE[$i]} ${NEWNAME[$i]} >& merged/${NEWNAME[$i]}'_pear.log' &
    fi
 done
 wait
@@ -47,22 +47,22 @@ if [ ! -e summary_pear.txt ]; then
    echo -e "Sample\tAssembled\tUnassembled\tDiscarded\tTotal" > summary_pear.txt
    gawk '(/^Assembled reads \./){
       gsub(/,/, "", $0)
-      ASSEMBLED[substr(FILENAME,1,4)] = $4
-      TOTAL[substr(FILENAME,1,4)]     = $6
+      ASSEMBLED[substr(FILENAME,8,4)] = $4
+      TOTAL[substr(FILENAME,8,4)]     = $6
    }(/^Discarded reads \./){
       gsub(/,/, "", $0)
-      DISCARDED[substr(FILENAME,1,4)] = $4
+      DISCARDED[substr(FILENAME,8,4)] = $4
    }(/^Not assembled reads \./){
       gsub(/,/, "", $0)
-      UNASSEMBLED[substr(FILENAME,1,4)] = $5
+      UNASSEMBLED[substr(FILENAME,8,4)] = $5
    }END{
       for (s in TOTAL) {
          ASS_P = ASSEMBLED[s] / TOTAL[s]
          DIS_P = DISCARDED[s] / TOTAL[s]
          UNA_P = UNASSEMBLED[s] / TOTAL[s]
-         printf("%s\t%u (%f.2)\t%u (%f.2)\t%u (%f.2)\t%u\n", s, ASSEMBLED[s], ASS_P, UNASSEMBLED[s], UNA_P, DISCARDED[s], DIS_P, TOTAL[s])
+         printf("%s\t%u (%.2f)\t%u (%.2f)\t%u (%.2f)\t%u\n", s, ASSEMBLED[s], ASS_P, UNASSEMBLED[s], UNA_P, DISCARDED[s], DIS_P, TOTAL[s])
       }
-   }' *_pear.log | sort -t $"\t" -nrk 5 >> summary_pear.txt
+   }' merged/*_pear.log | sort -t $'\t' -nrk 5 >> summary_pear.txt
 fi
 
 # TRIMMING
@@ -109,7 +109,7 @@ fi
 if [ ! -d trimmed ]; then mkdir trimmed; fi
 
 for i in `seq 0 24`; do
-   if [ ! -e trimmed/${NEWNAME[$i]}'_R1.fastq' ]; then
+   if [ ! -e trimmed/${NEWNAME[$i]}'_R1.fastq' ] && [ -s merged/${NEWNAME[$i]}'.unassembled.forward.fastq' ]; then
       cutadapt -a TCGGAAGAGCACACGTCTGAACTCCAGTCAC \
                -A TCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT \
                -g AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGA \
@@ -128,7 +128,7 @@ wait
 # merged reads in the orientation of the first one.
 
 for i in `seq 0 24`; do
-   if [ ! -e trimmed/${NEWNAME[$i]}'_merged.fastq' ]; then
+   if [ ! -e trimmed/${NEWNAME[$i]}'_merged.fastq' ] && [ -s merged/${NEWNAME[$i]}'.assembled.fastq' ]; then
       cutadapt -a TCGGAAGAGCACACGTCTGAACTCCAGTCAC \
                -g AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGA \
                -o trimmed/${NEWNAME[$i]}'_merged.fastq' \
@@ -139,12 +139,78 @@ done
 wait
 
 if [ ! -e summary_cutadapt.txt ]; then
-   if [ -e summarize_trimming.sh ]; then
-      ./summarize_trimming.sh
-   fi
+   echo -e "# A1 is the adapter in 3-prime, and A2 the one in 5-prime" > summary_cutadapt.txt
+   echo -e "Sample\tMerged_A2\tMerged_A1\tMerged_Total\tR1_A2\tR1_A1\tR2_A2\tR2_A1\tPaired_total" >> summary_cutadapt.txt
+   gawk '(/^Total reads processed/){
+      gsub(/,/, "", $4)
+      TOTAL[substr(FILENAME,9,4)] = $4
+   }(/Type: regular 3/){
+      A2[substr(FILENAME,9,4)] = $9
+   }(/Type: regular 5/){
+      A1[substr(FILENAME,9,4)] = $9
+   }END{
+      for (s in TOTAL) {
+         printf("%s\t%u\t%u\t%u\n", s, A2[s], A1[s], TOTAL[s])
+      }
+   }' trimmed/*_merged.log | sort -k 1,1 > z1
+
+   gawk '(FNR == 1){
+      SAMPLE = substr(FILENAME, 9, 4)
+      LIST[SAMPLE] = 1
+   }(/^Total read pairs/){
+      gsub(/,/, "", $5)
+      TOTAL[SAMPLE] = $5
+   }(/=== First read/){
+      READ = 1
+   }(/=== Second read/){
+      READ = 2
+   }(/Type: regular 3/){
+      A2[SAMPLE, READ] = $9
+   }(/Type: regular 5/){
+      A1[SAMPLE, READ] = $9
+   }END{
+      for (s in LIST) {
+         printf("%s\t%u\t%u\t%u\t%u\t%u\n", s, A2[s, 1] + 0, A1[s, 2] + 0, A2[s, 1] + 0, A1[s, 2] + 0, TOTAL[s] + 0)
+      }
+   }' trimmed/*_paired.log | sort -k 1,1 > z2
+
+   paste z1 z2 | cut -f 1,2,3,4,6,7,8,9,10 | sort -nrk 4 >> summary_cutadapt.txt
+   rm z1 z2
 fi
 
-
+# Here, I want a summary of the lengths and qualities of reads.
+if [ ! -e summary_fastq.txt ]; then
+   echo -e "Sample\tMinLength\tAverage\MaxLength\tNumSeqs\tQ20\tQ30\tMinQ\tAverage\tMaxQ" > summary_fastq.txt
+   for i in "${NEWNAME[@]}"; do
+      calculate_stats trimmed/$i'_merged.fastq' | gawk -v SAMPLE=$i 'BEGIN{
+         LENGTH=1
+      }(/^Quality stats and distribution/){
+         LENGTH=0
+      }((/^minimum:/) && (LENGTH == 1)){
+         MINLEN = $2
+      }((/^maximum:/) && (LENGTH == 1)){
+         MAXLEN = $2
+      }((/^average:/) && (LENGTH == 1)){
+         AVELEN = $2
+      }(/^num. seqs.:/){
+         NUMSEQ = $3
+      }(/^Q20:/){
+         Q20 = $2
+      }(/^Q30:/){
+         Q30 = $2
+      }((/^minimum:/) && (LENGTH == 0)){
+         MINQ = $2
+      }((/^maximum:/) && (LENGTH == 0)){
+         MAXQ = $2
+      }((/^average:/) && (LENGTH == 0)){
+         AVEQ = $2
+      }END{
+         print SAMPLE "\t" MINLEN "\t" AVELEN "\t" MAXLEN "\t" NUMSEQ "\t" Q20 "\t" Q30 "\t" MINQ "\t" AVEQ "\t" MAXQ
+      }' >> z1.txt
+   done
+   sort z1.txt -nrk 5 >> summary_fastq.txt
+   rm z1.txt
+fi
 
 
 # MAPPING
@@ -171,10 +237,6 @@ if [ ! -e reference.fa ]; then
    cat $DATADIR/dmel.fa $DATADIR/phiX.fa > reference.fa
 fi
 
-if [ ! -e reference.fa.fai ]; then
-   samtools faidx reference.fa
-fi
-
 if [ ! -e dmel.1.bt2 ]; then
    bowtie2-build reference.fa dmel
 fi
@@ -183,10 +245,57 @@ if [ ! -d mapped ]; then mkdir mapped; fi
 
 for i in `seq 0 24`; do
    if [ ! -e ${NEWNAME[$i]}.bam ]; then
-      map_and_bam.sh ${NEWNAME[$i]} mapped 1> mapped/${NEWNAME[$i]}'_mapping.log' 2> mapped/${NEWNAME[$i]}'_mapping.err' &
+      ./map_and_bam.sh ${NEWNAME[$i]} mapped 1> mapped/${NEWNAME[$i]}'_mapping.log' 2> mapped/${NEWNAME[$i]}'_mapping.err' &
    fi
 done
 wait
+
+# I learned from http://www.cureffi.org/2013/11/18/an-mrna-seq-pipeline-using-gsnap-samtools-cufflinks-and-bedtools/
+# that plotting the size of bam files against that of the original fastq files
+# can help identify potentially incomplete bam files. It seems easy enough to
+# try my own implementation:
+
+if [ ! -e bamsize.png ]; then
+   if [ ! -e bamsize.txt ]; then
+      echo -e "Sample\tBamSize\tFastqSize" > bamsize.txt
+      ls -l mapped/*.bam > z1
+      ls -l trimmed/*_merged.fastq > z2
+      ls -l trimmed/*_R1.fastq > z3
+      ls -l trimmed/*_R2.fastq > z4
+      paste z1 z2 z3 z4 | gawk '{
+         BAM[substr($9,8,4)] = $5
+         FQ1[substr($18,9,4)] = $14
+         FQ2[substr($27,9,4)] = $23
+         FQ3[substr($36,9,4)] = $32
+      }END{
+         for (s in BAM) {
+            printf("%s\t%u\t%u\n", s, BAM[s], FQ1[s] + FQ2[s] + FQ3[s])
+         }
+      }' | sort -nrk 2 >> bamsize.txt
+   fi
+   R --no-save < plot_bamsize.R
+fi
+
+if [ ! -e summary_mapping.txt ]; then
+   # Note that here I use only the mapping rates of the merged reads, since
+   # in this case there are not paired ends left unmerged.
+   echo -e "Sample\tMappedOnce\tMultiple\tUnmapped\tTotal\tOverall" > summary_mapping.txt
+   gawk '(/^[0-9]+ reads; of these:/){
+      TOTAL[substr(FILENAME,8,4)] = $1
+   }(/aligned exactly 1 time/){
+      ONCE[substr(FILENAME,8,4)] = $1 " " $2
+   }(/aligned >1 times/){
+      MORE[substr(FILENAME,8,4)] = $1 " " $2
+   }(/aligned 0 times/){
+      ZERO[substr(FILENAME,8,4)] = $1 " " $2
+   }(/overall alignment rate/){
+      OVER[substr(FILENAME,8,4)] = $1
+   }END{
+      for (s in TOTAL) {
+         print s "\t" ONCE[s] "\t" MORE[s] "\t" ZERO[s] "\t" TOTAL[s] "\t" OVER[s]
+      }
+   }' mapped/*_merged.log | sort -nr -t $'\t' -k 5 >> summary_mapping.txt
+fi
 
 # CLEAN UP
 # --------

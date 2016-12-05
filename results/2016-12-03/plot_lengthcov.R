@@ -1,0 +1,11 @@
+i1b1 <- read.table('i1b1.bed', col.names=c('chr', 'start', 'end', 'reads'))
+i3b3 <- read.table('i3b3.bed', col.names=c('chr', 'start', 'end', 'reads'))
+i5b5 <- read.table('i5b5.bed', col.names=c('chr', 'start', 'end', 'reads'))
+i6b6 <- read.table('i6b6.bed', col.names=c('chr', 'start', 'end', 'reads'))
+
+png(filename='length_coverage.png')
+plot(i1b1$end - i1b1$start, log(i1b1$reads), pch='.', col='red', xlab='Locus length', ylab='Number of reads')
+points(i3b3$end - i3b3$start, log(i3b3$reads), pch='.', col='orange')
+points(i5b5$end - i5b5$start, log(i5b5$reads), pch='.', col='green')
+points(i6b6$end - i6b6$start, log(i6b6$reads), pch='.', col='blue')
+dev.off()

@@ -1,4 +1,4 @@
-Sample	MinLength	Average\MaxLength	NumSeqs	Q20	Q30	MinQ	Average	MaxQ
+Sample	MinLength	Average	MaxLength	NumSeqs	Q20	Q30	MinQ	Average	MaxQ
 i5b5	50	282.67	564	4297190	99.07	97.33	2	39.00	40
 i6b6	53	280.25	566	4262265	99.39	98.12	2	39.26	40
 i1b1	50	393.96	562	3431389	95.07	88.23	2	35.95	40

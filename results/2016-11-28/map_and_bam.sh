@@ -64,3 +64,7 @@ if [ ! -e $2/$1.bam ]; then
       fi
    fi
 fi
+
+if [ ! -e $2/$1.bam.bai ]; then
+   samtools index $2/$1.bam
+fi

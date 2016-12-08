@@ -180,7 +180,7 @@ fi
 
 # Here, I want a summary of the lengths and qualities of reads.
 if [ ! -e summary_fastq.txt ]; then
-   echo -e "Sample\tMinLength\tAverage\MaxLength\tNumSeqs\tQ20\tQ30\tMinQ\tAverage\tMaxQ" > summary_fastq.txt
+   echo -e "Sample\tMinLength\tAverage\tMaxLength\tNumSeqs\tQ20\tQ30\tMinQ\tAverage\tMaxQ" > summary_fastq.txt
    for i in "${NEWNAME[@]}"; do
       calculate_stats trimmed/$i'_merged.fastq' | gawk -v SAMPLE=$i 'BEGIN{
          LENGTH=1

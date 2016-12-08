@@ -10,6 +10,25 @@ in updating the GBS protocol, I will prepare a pilot experiment.
 As usual, below I explain the goal of the analyses run in each folder, in reverse
 chronological order.
 
+2016-12-09
+==========
+I want to call variants and estimate the potential heterozygosity among lines. I want to
+use both mpileup and freebayes, and maybe GATK as well.
+
+
+2016-12-08
+==========
+I run step 1 of pyrad (demultiplexing), to compare the results with those of sabre, and
+to get an idea of how many more reads we can save from the undetermined fastq files.
+I also generate the histograms of merged read lengths.
+
+2016-12-03
+==========
+I use bedtools to compare the bam files among the 4 samples. It is clear that
+sample 1, processed with only 12 PCR cycles, has a better distribution of coverage
+per site. All samples have more than 12000 sites covered at least 6 times, and
+more than 9000 of them are covered at least 6 times in all 4 samples.
+
 2016-11-28
 ==========
 Merged paired reads, trimmed adapters, and mapped them to the reference genome.

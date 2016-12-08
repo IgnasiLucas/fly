@@ -18,13 +18,13 @@ for i in "${SAMPLE[@]}"; do
    if [ ! -e $i.bed ]; then
       # The following produces a bed file where all reads covering the same locus
       # (within 10 bp) are collapsed in one line, and the number of reads is annotated.
-      samtools view -F 260 -bu $BAMDIR/$i.bam | bedtools merge -c 3 -o count -i stdin > $i.bed &
+      samtools view -F 260 -bu -q 20 $BAMDIR/$i.bam | bedtools merge -c 3 -o count -i stdin > $i.bed &
    fi
 done
 wait
 
 if [ ! -e pooled.bed ]; then
-   samtools merge -u - $BAMDIR/*.bam | samtools view -F 260 -bu - | bedtools merge -c 3 -o count -i stdin > pooled.bed
+   samtools merge -u - $BAMDIR/*.bam | samtools view -q 20 -F 260 -bu - | bedtools merge -c 3 -o count -i stdin > pooled.bed
 fi
 
 # Once I have the set of loci ever covered by any sample, I plot the distribution of
@@ -96,10 +96,10 @@ fi
 
 if [ ! -e coverage_matrix.txt ]; then
    if [ ! -e genome.txt ]; then
-      samtools view -H $BAMDIR/${SAMPLE[1]}.bam | gawk '(/^@SQ/){print substr($2,4) "\t" substr($3,4)}' > genome.txt
+      samtools view -H $BAMDIR/${SAMPLE[0]}.bam | gawk '(/^@SQ/){print substr($2,4) "\t" substr($3,4)}' > genome.txt
    fi
    HEADER="#CHR\tSTART\tEND"`printf "\t%s" "${SAMPLE[@]}"`
-   bedtools intersect -a pooled_filtered.bed -b `printf "%s.bed " "${SAMPLE[@]}"` -names "${SAMPLE[@]}" -sorted -wo -g genome.txt | \
+   bedtools intersect -a pooled.bed -b `printf "%s.bed " "${SAMPLE[@]}"` -names "${SAMPLE[@]}" -sorted -wo -g genome.txt | \
    gawk -v HEADER="$HEADER" 'function printline(POS, COV){
       print POS "\t" COV["i1b1"] + 0 "\t" COV["i1b3"] + 0 "\t" COV["i1b5"] + 0 "\t" COV["i1b6"] + 0 "\t" COV["i1b0"] + 0 "\t" \
                      COV["i3b1"] + 0 "\t" COV["i3b3"] + 0 "\t" COV["i3b5"] + 0 "\t" COV["i3b6"] + 0 "\t" COV["i3b0"] + 0 "\t" \
@@ -123,12 +123,15 @@ if [ ! -e coverage_matrix.txt ]; then
 fi
 
 # The coverage_matrix.txt file is quite large. I will summarize it below, counting
-# on each site how many samples cover it with at least 4 reads:
+# on each site how many samples cover it with at least 1 reads:
 if [ ! -e summary_coverage.txt ]; then
-   gawk '(NR > 1){
+   gawk 'BEGIN{
+         MINCOV = 1
+         MAXLEN = 700
+      }((NR > 1) && ($3 - $2 <= MAXLEN)){
       N=0
       for (i=4;i<=NF;i++) {
-         if ($i >= 4) N++
+         if ($i >= MINCOV) N++
       }
       F[N]++
    }END{
@@ -142,3 +145,39 @@ if [ ! -e summary_coverage.txt ]; then
    }'> summary_coverage.txt
 fi
 
+# Another way to summarize it is to use binary flags to indicate which ones of
+# the four samples are covered at a certain depth:
+if [ ! -e summary_coverage_flags.txt ]; then
+   gawk '((NR > 1) && ($3 - $2 < 1000)){
+      N1 = 0; N6 = 0
+      if ($4  > 0) N1 += 1
+      if ($4  > 5) N6 += 1
+      if ($10 > 0) N1 += 2
+      if ($10 > 5) N6 += 2
+      if ($16 > 0) N1 += 4
+      if ($16 > 5) N6 += 4
+      if ($22 > 0) N1 += 8
+      if ($22 > 5) N6 += 8
+      F1[N1]++
+      F6[N6]++
+   }END{
+      TRANSLATE[0] = "None";   TRANSLATE[8] = 6
+      TRANSLATE[1] = 1;        TRANSLATE[9] = "1,6"
+      TRANSLATE[2] = 3;        TRANSLATE[10] = "3,6"
+      TRANSLATE[3] = "1,3";    TRANSLATE[11] = "1,3,6"
+      TRANSLATE[4] = 5;        TRANSLATE[12] = "5,6"
+      TRANSLATE[5] = "1,5";    TRANSLATE[13] = "1,5,6"
+      TRANSLATE[6] = "3,5";    TRANSLATE[14] = "3,5,6"
+      TRANSLATE[7] = "1,3,5";  TRANSLATE[15] = "1,3,5,6"
+      for (f = 0; f < 16; f++) print f "\t" TRANSLATE[f] "\t" F1[f] + 0 "\t" F6[f] + 0
+   }' coverage_matrix.txt | sort -nk 1 > summary_coverage_flags.txt
+fi
+
+# CONCLUSIONS
+# -----------
+#
+# There are 14149 sites covered at least 6 times in sample 1, 12157 in sample 3, 14529 in sample 5,
+# and 12496 in sample 6. Overall, it is quite good. 9157 of all those are in common. But, for the
+# purpose of estimating runs of homozygosity, it is not necessary for all samples to have the same
+# markers covered. Note that those counts are loci shorter than 1000 nucleotides. The question of
+# how many of them are variable among isolines is still open.

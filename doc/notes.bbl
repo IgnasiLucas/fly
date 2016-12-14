@@ -1,4 +1,4 @@
-\begin{thebibliography}{18}
+\begin{thebibliography}{19}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -31,6 +31,11 @@ C.~C. Cockerham and B.~S. Weir.
 J.~F. Crow.
 \newblock Mid-{Century} {Controversies} in {Population} {Genetics}.
 \newblock \emph{Annu. Rev. Genet.}, 42\penalty0 (1):\penalty0 1--16, Nov. 2008.
+
+\bibitem[Eaton(2014)]{Eaton2014}
+D.~A.~R. Eaton.
+\newblock {PyRAD}: assembly of de novo {RADseq} loci for phylogenetic analyses.
+\newblock \emph{Bioinformatics}, page btu121, Mar. 2014.
 
 \bibitem[Franklin(1977)]{Franklin1977}
 I.~R. Franklin.

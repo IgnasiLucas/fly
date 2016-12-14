@@ -395,10 +395,10 @@ On November 14, A.M. sent the results of the Bioanalyser (figure~\ref{fig:sizese
 
 \begin{figure}
 \centering{\includegraphics[width=9cm]{images/size_selection_3.png}}
-\caption{Electropherograms from the HS DNA assay of samples 3, 5, and 6, after the third round of size selection. This time, it seems to have worked, despite of a shift to the left, with respect to sample 1.}\label{fig:sizeselection2}
+\caption{Electropherograms from the HS DNA assay of samples 3, 5, and 6, after the third round of size selection. This time, it seems to have worked, despite of a shift to the left, with respect to sample 1.}\label{fig:sizeselection3}
 \end{figure}
 
-\section{Preparation of sequencing primers. November 15\textsuperscript{th}}
+\section{Preparation of sequencing primers. November 15}
 A.M. requests 600 $\mu$l of 0.5 $\mu$M sequencing primers (300 pmol). In addition, she asked about the indexing primer. I had assumed it would be just the standard one. In fact, the TruSeq `Multiplexing Index Read Sequencin Primer' is two nucleotides longer than what I need. Fortunately, the two extra nucleotides are in 5', and will not prevent correct priming (see representation below).
 
 I prepare 1 ml of each sequencing primer at 5 $\mu$M, which is equivalent to 5000 pmol. The primers are at 100 $\mu$M. Thus, the dilution factor is 20, which means that I need $1000/20=50$ $\mu$l of primer and 950 $\mu$l of water.
@@ -464,6 +464,17 @@ I prepare 1 ml of each sequencing primer at 5 $\mu$M, which is equivalent to 500
 \end{tabular}
 \end{flushleft}
 \end{landscape}
+
+\section{Summary of sequencing and pre-processing of reads}
+Sequenced reads came already identified from the sequencing center, by the indices. In order to check the reliability of indices and barcode, I also demultiplexed them by the barcode, using both \href{https://github.com/najoshi/sabre}{Sabre} and with Pyrad \cite{Eaton2014}. Pyrad (but not ipyrad) reports what words have been found as barcodes, and in what frequency. That helps identify common versions of the true barcode that the algorithms fail to recognize, e.g. because they involve the deletion of the first base. I keep in separate fastq files reads with a different combination of index and codeword. In most reads (88.13 \%), index and codeword coincide. The contradictions between index and codeword need be analysed until their true identity can be decided by the genetic variants.
+
+The merging of forward and reverse reads was very successful, resulting in no unmerged pairs other than those discarded by quality filters. Merged reads were checked for the presence of adapter sequences, and less than 0.1 \% had any trace of adapter sequence. The average lengths of merged reads were 394 bp for sample 1, 289 bp for sample 3, 283 bp for sample 5, and 280 bp for sample 6. This roughly corresponds to what was expected from the electropherograms of the libraries (see figure~\ref{fig:sizeselection} for sample 1, and figure~\ref{fig:sizeselection2} for samples 3, 5, and 6; take into account that the original library included between 126 and 129 additional base pairs, not present in demultiplexed, merged reads).
+
+Overall mapping rates to the \emph{D. melanogaster} reference genome are above 95 \%, while unambiguously mapped reads are not more than 85 \%. Curiously, around 0.3 \% of samples map to the Y chromosome (all samples were females). The Y chromosome is just 2.9 \% of the length of the genome, and because of being in one coppy per cell it should be represented by 1.6 \% of the reads. I favor the hypothesis that the reads mapping to the Y chromosome are just missmapped. Only less than 2 \% of those Y-mapping reads hava a mapping quality of at least 20.
+
+I used bedtools to compare the loci covered by the samples. There are 14149 sites covered at least 6 times in sample 1, 12157 in sample 3, 14529 in sample 5, and 12496 in sample 6. Overall, it is quite good. 9157 of all those are in common. But, for the purpose of estimating runs of homozygosity, it is not necessary for all samples to have the same markers covered. Note that those counts are loci shorter than 1000 nucleotides. For some reason the mappings include reads stretched over much larger regions, which must be spurious.
+
+The bad news is that overall there are almost 50000 sites apparently covered by at least one read. That is much higher than I intended, and spreads the coverage too much to sequence 24 samples per run. I expect to improve the coverage by using higher cluster densities in the sequencing run and by using the exact same conditions of size selection in all samples. Also, the fact that samples 3, 5, and 6 underwent 36 PCR cycles probably contributed to a biased distribution of coverage, and will be avoided in future runs.
 
 \bibliographystyle{abbrvnat}
 \bibliography{notes}

@@ -476,6 +476,11 @@ I used bedtools to compare the loci covered by the samples. There are 14149 site
 
 The bad news is that overall there are almost 50000 sites apparently covered by at least one read. That is much higher than I intended, and spreads the coverage too much to sequence 24 samples per run. I expect to improve the coverage by using higher cluster densities in the sequencing run and by using the exact same conditions of size selection in all samples. Also, the fact that samples 3, 5, and 6 underwent 36 PCR cycles probably contributed to a biased distribution of coverage, and will be avoided in future runs.
 
+\section{About the analysis. December 15}
+Samtools mpileup does not output the genotype, nor its likelihood, in non-variant sites. This is unfortunate for the purpose of analysing runs of homozygosity. On the other hand, bcftools 1.3 does identify runs of homozygosity. However, it requires a recombination map file.
+
+In order to determine a list of marker sites, where the four samples are reliably genotyped, I should use only the four reliable bam files to generate the vcf file. I am even tempted to generate a vcf file from one bam file at a time, since the samples are not random members of a population (or are they?). Even if I can determine runs of homozygosity individually for each sample, the joint analysis of the four samples informs me about the original variation, or the differences among the lines.
+
 \bibliographystyle{abbrvnat}
 \bibliography{notes}
 

@@ -1,0 +1,70 @@
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8x]{inputenc}
+\usepackage{booktabs}
+
+\title{High-molecular weight DNA extraction by phenol-chloroform}
+\author{J. Ignacio Lucas Lledó, Zahida Sultanova}
+\begin{document}
+\maketitle
+This is based on a protocol gently shared by Marta Puig (Universitat Autònoma de Barcelona), and modified to be applied on flies, instead of human tissues.
+\section{Sample preparation}
+\begin{enumerate}
+   \item Put a frozen fly into a 1.5 ml microtube, previously cooled. Keep in ice.
+   \item With the sample still frozen, add 370 µl of \textbf{extraction buffer}, and crush the tissue using a sterile micropistile. Optionally, add a tiny bit of sand. Keep it cool while processing.
+   \item Add 370 µl more of extraction buffer and homogenize it.
+   \item Add 2.5 µl of \textbf{RNase coctail}\footnote{Let's try with RNase A.} (per 750 µl of extraction buffer used) and incubate 1 h at 37$^\circ{}$C in a hybridization oven with rotation (2 rpm).
+   \item Add 3.75 µl of \textbf{proteinase K}\footnote{This assumes the proteinase K is at 20 mg/ml; it should end up at 100 µg/ml. The proteinase K from NEB is at 20 mg/ml. But the proteinase K from the DNeasy Blood \& Tissue kit seems to be at 15 mg/ml, so I would add 5 µl instead, if using this one}.
+   \item Incubate overnight at 50$^\circ{}$C in the hybridization oven with rotation (2 rpm).
+\end{enumerate}
+
+\section{DNA isolation}
+\begin{enumerate}
+   \item Check that the solution is clear and viscous after the overnight incubation. If not, add more proteinase K and incubate again to achieve this. No visible pieces of the cell pellet should be present at this stage.
+   \item If you used sand, now it's a good time to remove it. Centrifuge for 2 min at 8000 g at 20$^\circ{}$C, and transfer the supernatant to a new tube. Discard the sand.
+   \item Add 1 volume (750 µl) of \textbf{TE-equilibrated phenol pH 7.9}\footnote{Atention: Adjust the pH of the phenol solution to 7.9 (appropriate for DNA) by adding the buffer supplied with the phenol following the instructions of the manufacturer. This step should be performed prior to starting the DNA isolation to allow the complete separation of the two phases in the phenol solution before using it for the first time. This pH adjustment only needs to be done when a new bottle of phenol is opened, not every time the phenol is used.} and agitate in the orbital rotator (40 rpm) for 15 min until the two phases are mixed. Alternatively, swirl gently by hand for 15-20 min.\label{it:phenol}
+   \item Centrifuge 15 min at 5000 g at room temperature.
+   \item Recover the aqueous phase (upper phase) with wide-bore 1 ml tips and transfer it to a fresh 1.5 or 2 ml tube. Pipette slowly to avoid breaking DNA. Try to recover the maximum amount of aqueous phase possible without disturbing the white interphase. This can be difficult in the first phenol step because the aqueous phase is very viscous.\label{it:water}
+   \item Repeat steps \ref{it:phenol} to \ref{it:water}
+   \item Add 1 volum (750 µl) of \textbf{Phenol:Chloroform:IAA ph 7.9}\footnote{See previous footnote.} and agitate in the orbital rotator (40 rpm) for 15 min until the two phases are mixed. Alternatively, swirl gently by hand for 15-20 min.
+   \item Centrifuge 10 min at 5000 g at room temperature.
+   \item Since PCR amplification or other applications could be inhibited by phenol contamination, recover the aqueous phase (upper phase) with wide-bore 1 ml tips and transfer it to a fresh 2 ml tube. Add 1 volume (750 µl) of Chloroform:IAA and swirl gently by hand until the complete emulsion of the two phases is achieved.
+   \item Centrifuge 10 min at 5000 g at room temperatue.
+   \item  Recover the aqueous phase (upper phase) with wide-bore tips and transfer it to a 15 ml tube. Add 0.1 volumes of 3M Sodium Acetate (NaOAc) and 2 volumes of absolute EtOH at room temperature. \textbf{Imporant:} Correct the volume depending of the aqueous phase recovered from the last chloroform pass to avoid salt precipitates.
+   \item Mix slowly by inversion until the DNA precipitates (a transparent/white mucus forms in the solution).
+   \item Transfer part of the liquid to a fresh 15 ml tube until the volume left can fit into a 1.5 ml eppendorf tube, and then transfer the DNA precipitate together with the rest of the solution carefully to a 1.5 ml low-binding eppendorf tube.
+   \item Centrifuge 1 min at 5000 g at room temperature to form a pellet of DNA.
+   \item Eliminate supernatant and add 1 volume (750 µl) of 70\% EtOH. Separate the pellet from the bottom of the tube and wash it by moving it around the 70\% EtOH.\label{it:ethanol}
+   \item Centrifuge 1 min at 5000 g at room temperature and repeat steps \ref{it:ethanol}--\ref{it:centrifuge} once more. \label{it:centrifuge}
+   \item Eliminate the maximum amount of EtOH 70\% without touching the white DNA pellet after the final wash. Leave the eppendorf open to air dry for a few minutes. Important: Do not let the DNA pellet dry too much because then it can be difficult to resuspend. Wait until there are no drops of EtOH 70\% left on the tube walls. It is possible that in this process the DNA pellet turns transparent and becomes more difficult to see.
+   \item Resuspend the DNA in 150-300 µl milliQ water or TE. Be aware that EDTA from the TE buffer could inhibit some reactions (for example, those that use Mg$^{2+}$).
+   \item Leave the DNA to dissolve overnight at 4$^\circ{}$C. Do not freeze the DNA sample because freezing/thawing cycles can fragment the DNA.
+\end{enumerate}
+
+\section{List of reagents}
+\begin{description}
+   \item [Extraction Buffer] 10 mM Tris-HCl pH 8.0, 10 mM EDTA pH 8.0, 150 mM NaCl, 0.5\% SDS. Autoclave before adding SDS. For 50 ml: 0.5 ml Tris-HCl 1 M, 1 ml EDTA 0.5 M, 5 ml NaCl 1.5 M, 43.5 ml H$_2$O.
+   \item [RNase Cocktail] Cat \# AM2286 AMBION.
+   \item [Proteinase K] Cat \# AM2546 AMBION.
+   \item [Phenol solution] Equilibrated with 10 mM Tris-HCl, pH 8.0, 1 mM EDTA, molecular biology grade. Cat \# P4557-100ML SIGMA.
+   \item [Phenol:Chloroform:IAA] Molecular biology grade, cat \# AM9730 AMBION.
+   \item [Chloroform:IAA] Molecular biology grade, cat \# C0549 SIGMA.
+   \item [Sodium acetate buffer solution] pH 5.2. S7899-100ML SIGMA.
+   \item [Ethanol].
+\end{description}
+
+\section{List of devices}
+\begin{description}
+   \item [Centrifuge] There is one available in the Evolutionary Ecology lab.
+   \item [Autoclave] Available.
+   \item [Hybridization oven] Not available yet.
+   \item [pH-meter] There is one available.
+   \item [Orbital rotor] Not available yet.
+   \item [Precision scale] Available, I think, at the Evol. Ecol. lab.
+\end{description}
+\end{document}
+
+15 mg/ml
+20 mg/ml
+
+756,25 µl total

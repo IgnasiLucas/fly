@@ -1,0 +1,43 @@
+---
+title: Density plots
+author: J. Ignacio Lucas Lledó
+output: html_document
+---
+
+```{r}
+library(tidyr)
+library(ggplot2)
+library(gridExtra)
+```
+
+The K-mer analysis toolkit produces 'density plots'. They are heatmaps that combine the
+GC content of k-mers with their frequency in the input file, which is a fasta file in this
+case. However, the plots made by `kat` are not easy to compare, because `kat` automatically
+sets the range of k-mer frequencies that are displayed, producing very different plots
+for different input files. Below, I assume that `kat gcp` counts k-mer occurrences between
+0 and 1000, which I think is always the case.
+
+```{r fig.width=15, fig.height=20, warning=FALSE}
+for (i in 1:10) {
+   input    <- sprintf('GC/kat-gcp%02i.mx', i)
+   gcp      <- read.table(input)
+   gcp$GC   <- seq(0,26)
+   gcp_long <- gather(gcp, key='multiplicity', value='frequency', 1:1001)
+   gcp_long$multiplicity <- rep(seq(0:1000), each=27)
+   head(gcp_long)
+   assign(sprintf('p%02i', i), ggplot(data=gcp_long, mapping=aes(x=multiplicity, y=GC, fill=frequency)) +
+      geom_tile() + scale_fill_gradientn(trans='log', colors=terrain.colors(10), breaks=c(1,100,10000,1e6), na.value='blue') +
+      ggtitle(sprintf('Sample %02i', i)))
+}
+
+grid.arrange(p01, p02, p03, p04, p05, p06, p07, p08, p09, p10, nrow=5)
+```
+
+If these were single-genome samples, I would say the sequencing effort was not enough, because
+the frequency of k-mers drops abruptly, without the typical heap that would correspond to the average
+coverage of unique sequences. However, being a metagenomics sample, an alternative explanation
+is the very low diversity of the sample. If the bacterial community is dominated by a single
+species, over 50% of the sequencing effort may be used in sequencing that species at high covarge
+(long green tails), while the other 50% of the sequencing effort is thinly spread among all the low-frequency
+species (brown and white peak on the left). Of course the tall peak on the left of each pannel also
+includes the k-mers with sequencing errors.

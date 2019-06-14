@@ -1,0 +1,66 @@
+Kmer Analysis Toolkit (KAT) V2.4.1
+
+Running KAT in GCP mode
+------------------------
+
+Input 1 is a sequence file.  Counting kmers for input 1 (derep08.fa) ...
+Warning: Specified hash size insufficent - attempting to double hash size... success!
+
+Warning: Specified hash size insufficent - attempting to double hash size... success!
+ done.  Time taken: 770.7s
+
+Analysing kmers in hash ...done.  Time taken: 122.9s
+
+Merging matrices ...done.  Time taken: 0.0s
+
+Saving results to disk ... done.  Time taken: 0.0s
+
+Creating plot ... done.  Time taken: 1.9s
+
+Analysing peaks
+---------------
+
+Analysing distributions for: kat-gcp.mx ... done.  Time taken:  1.3s
+
+K-mer frequency spectra statistics
+----------------------------------
+
+K-value used: 27
+Peaks in analysis: 2
+Global minima @ Frequency=189x (2046)
+Global maxima @ Frequency=190x (2146)
+Overall mean k-mer frequency: 274x
+
+  Index    Left    Mean    Right    StdDev    Max    Volume  Description
+-------  ------  ------  -------  --------  -----  --------  -------------
+      1   21.39     190   358.61     84.3     504    105309  1X
+      2   29.5      380   730.5     175.25    257     83572  2X
+
+Calculating genome statistics
+-----------------------------
+Assuming that homozygous peak is the largest in the spectra with frequency of: 190x
+Homozygous peak index: 1
+CAUTION: the following estimates are based on having a clean spectra and having identified the correct homozygous peak!
+Estimated genome size: 0.27 Mbp
+
+GC distribution statistics
+--------------------------
+
+K-value used: 27
+Peaks in analysis: 1
+Mean GC: 48.12%
+
+  Index    Left    Mean    Right    StdDev       Max     Volume  Description
+-------  ------  ------  -------  --------  --------  ---------  -------------
+      1    5.77   13.03     20.3      3.63  34206248  311403863
+
+Creating plots
+--------------
+
+Plotting K-mer frequency distributions ... done.  Saved to: None
+Plotting GC distributions ... done. Saved to: None
+
+
+KAT GCP completed.
+Total runtime: 897.4s
+

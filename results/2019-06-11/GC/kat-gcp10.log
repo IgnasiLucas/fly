@@ -1,0 +1,68 @@
+Kmer Analysis Toolkit (KAT) V2.4.1
+
+Running KAT in GCP mode
+------------------------
+
+Input 1 is a sequence file.  Counting kmers for input 1 (derep10.fa) ...
+Warning: Specified hash size insufficent - attempting to double hash size... success!
+
+Warning: Specified hash size insufficent - attempting to double hash size... success!
+
+Warning: Specified hash size insufficent - attempting to double hash size... success!
+ done.  Time taken: 1048.0s
+
+Analysing kmers in hash ...done.  Time taken: 189.7s
+
+Merging matrices ...done.  Time taken: 0.0s
+
+Saving results to disk ... done.  Time taken: 0.0s
+
+Creating plot ... done.  Time taken: 1.8s
+
+Analysing peaks
+---------------
+
+Analysing distributions for: kat-gcp.mx ... done.  Time taken:  3.2s
+
+K-mer frequency spectra statistics
+----------------------------------
+
+K-value used: 27
+Peaks in analysis: 2
+Global minima @ Frequency=129x (2002)
+Global maxima @ Frequency=130x (2020)
+Overall mean k-mer frequency: 195x
+
+  Index    Left    Mean    Right    StdDev    Max    Volume  Description
+-------  ------  ------  -------  --------  -----  --------  -------------
+      1   18        130   242        56       534     74264  1X
+      2   22.72     258   493.28    117.64    272     77762  2X
+
+Calculating genome statistics
+-----------------------------
+Assuming that homozygous peak is the largest in the spectra with frequency of: 130x
+Homozygous peak index: 1
+CAUTION: the following estimates are based on having a clean spectra and having identified the correct homozygous peak!
+Estimated genome size: 0.23 Mbp
+
+GC distribution statistics
+--------------------------
+
+K-value used: 27
+Peaks in analysis: 1
+Mean GC: 44.44%
+
+  Index    Left    Mean    Right    StdDev       Max     Volume  Description
+-------  ------  ------  -------  --------  --------  ---------  -------------
+      1    5.36   12.03     18.7      3.34  57206121  478221189
+
+Creating plots
+--------------
+
+Plotting K-mer frequency distributions ... done.  Saved to: None
+Plotting GC distributions ... done. Saved to: None
+
+
+KAT GCP completed.
+Total runtime: 1243.5s
+

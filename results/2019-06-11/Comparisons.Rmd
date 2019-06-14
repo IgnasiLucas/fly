@@ -1,0 +1,24 @@
+---
+title: 'k-mer spectra comparions among samples'
+author: 'J. Ignacio Lucas Lledó'
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+library(gridExtra)
+library(tidyr)
+```
+
+```{r fig.width=50 fig.height=45}
+for (i in 2:10) {
+   for (j in 1:(i-1)) {
+      comp <- read.table(sprintf('Comparisons/kat-comp%02i-%02i.mx', i, j))
+      comp$Y <- seq(0,1000)
+      comp_long <- gather(comp, key='X', value='frequency', 1:1001)
+      comp_long$X <- rep(seq(0, 1000), each=1001)
+      assign(sprintf('p%02i_%02i', i, j),
+             ggplot(data=comp_long, mapping=aes(x=X, y=Y, fill=frequency)) + geom_tile() + scale_fill_gradientn(trans='log', colors=terrain.colors(10))
+   }
+}
+```

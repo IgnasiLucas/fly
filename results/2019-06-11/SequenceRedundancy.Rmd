@@ -1,0 +1,24 @@
+---
+title: Sequence Redundancy Analysis
+author: J. Ignacio Lucas Lledó
+output: html_document
+---
+
+```{r echo=FALSE}
+library(ggplot2)
+library(gridExtra)
+```
+
+In principle, there are reasons both for eliminating duplicated reads and for keeping them
+in a metagenomic dataset. In this first analysis, I just look at how duplicated reads are.
+Files `dereplicated_fasta/SeqHistXX.txt` contain the histogram of the multiplicity level of whole reads for sample `XX`.
+
+```{r fig.width=9, fig.height=12}
+for (i in 1:10) {
+   df <- read.table(sprintf('dereplicated_fasta/SeqHist%02g.txt', i), col.names=c('size','freq'))
+   assign(sprintf('p%02g', i), ggplot(data=df, mapping=aes(x=size, y=freq)) +
+          geom_point() + ggtitle(sprintf('Sample %g', i)) + scale_x_log10() + scale_y_log10() +
+          xlab('Multiplicity level') + ylab('Num. of sequences'))
+}
+grid.arrange(p01, p02, p03, p04, p05, p06, p07, p08, p09, p10, nrow=4)
+```

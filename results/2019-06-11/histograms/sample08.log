@@ -1,0 +1,131 @@
+Kmer Analysis Toolkit (KAT) V2.4.1
+
+Running KAT in HIST mode
+------------------------
+
+Input 1 is a sequence file.  Counting kmers for input 1 (dereplicated_fasta/derep08.fa) ...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size... success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size...
+Warning: Specified hash size insufficent - attempting to double hash size... success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ success!
+ done.  Time taken: 66.7s
+
+Bining kmers ... done.  Time taken: 2.6s
+
+Dumping hash to histograms/sample08-hash.jf27 ... done.  Time taken: 10.4s
+
+Merging counts ... done.  Time taken: 0.0s
+
+Saving results to disk ... done.  Time taken: 0.0s
+
+Creating plot ... done.  Time taken: 1.5s
+
+Analysing peaks
+---------------
+
+Analysing distributions for: histograms/sample08 ... done.  Time taken:  1.4s
+
+K-mer frequency spectra statistics
+----------------------------------
+K-value used: 27
+Peaks in analysis: 2
+Global minima @ Frequency=188x (2046)
+Global maxima @ Frequency=189x (2146)
+Overall mean k-mer frequency: 277x
+
+  Index    Left    Mean    Right    StdDev    Max    Volume  Description
+-------  ------  ------  -------  --------  -----  --------  -------------
+      1   21.34  189      356.66     83.83    490    101782  1X
+      2   28.27  376.85   725.42    174.29    276     90036  2X
+
+Calculating genome statistics
+-----------------------------
+Assuming that homozygous peak is the largest in the spectra with frequency of: 189x
+Homozygous peak index: 1
+CAUTION: the following estimates are based on having a clean spectra and having identified the correct homozygous peak!
+Estimated genome size: 0.28 Mbp
+
+Creating plots
+--------------
+
+Plotting K-mer frequency distributions ... done.  Saved to: None
+
+
+KAT HIST completed.
+Total runtime: 83.3s
+

@@ -1,0 +1,39 @@
+K-mer statistics for: 
+ - Hash 1: "histograms/sample10-hash.jf27"
+ - Hash 2: "histograms/sample01-hash.jf27"
+
+Total K-mers in: 
+ - Hash 1: 1126538169
+ - Hash 2: 168362785
+
+Distinct K-mers in:
+ - Hash 1: 482733922
+ - Hash 2: 10290178
+
+Total K-mers only found in:
+ - Hash 1: 1120955313
+ - Hash 2: 93969130
+
+Distinct K-mers only found in:
+ - Hash 1: 482673257
+ - Hash 2: 10229513
+
+Shared K-mers:
+ - Total shared found in hash 1: 5582856
+ - Total shared found in hash 2: 74393655
+ - Distinct shared K-mers: 60665
+
+Distance between spectra 1 and 2 (all k-mers):
+ - Manhattan distance: 4.7245e+08
+ - Euclidean distance: 3.60504e+08
+ - Cosine distance: 0.0002927
+ - Canberra distance: 268.597
+ - Jaccard distance: 0.97869
+
+Distance between spectra 1 and 2 (shared k-mers):
+ - Manhattan distance: 18510
+ - Euclidean distance: 6694.65
+ - Cosine distance: 0.0164783
+ - Canberra distance: 387.859
+ - Jaccard distance: 0.264731
+

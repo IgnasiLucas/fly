@@ -10,15 +10,55 @@ library(gridExtra)
 library(tidyr)
 ```
 
-```{r fig.width=50 fig.height=45}
+```{r fig.width=20, fig.height=42, warning=FALSE}
 for (i in 2:10) {
    for (j in 1:(i-1)) {
-      comp <- read.table(sprintf('Comparisons/kat-comp%02i-%02i.mx', i, j))
+      comp <- read.table(sprintf('comparisons/kat-comp%02i-%02i-main.mx', i, j))
       comp$Y <- seq(0,1000)
       comp_long <- gather(comp, key='X', value='frequency', 1:1001)
       comp_long$X <- rep(seq(0, 1000), each=1001)
       assign(sprintf('p%02i_%02i', i, j),
-             ggplot(data=comp_long, mapping=aes(x=X, y=Y, fill=frequency)) + geom_tile() + scale_fill_gradientn(trans='log', colors=terrain.colors(10))
+             ggplot(data=comp_long, mapping=aes(x=X, y=Y, fill=frequency)) + geom_tile() + xlim(0,500) + ylim(0,500) +
+             scale_fill_gradientn(trans='log', colors=terrain.colors(10), breaks=c(1,100,10000,1000000), na.value='blue') +
+             xlab(sprintf('27-mer frequency for derep%02i.fa', i)) +
+             ylab(sprintf('27-mer frequency for derep%02i.fa', j)))
    }
 }
+layout_matrix <- matrix(c(1, NA, NA, NA, NA,
+                          2,  3, NA, NA, NA,
+                          4,  5,  6, NA, NA,
+                          7,  8,  9, 10, NA,
+                         11, 12, 13, 14, NA,
+                         16, 17, 18, 19, NA,
+                         22, 23, 24, 25, NA,
+                         29, 30, 31, 32, NA,
+                         37, 38, 39, 40, NA,
+                         15, NA, NA, NA, NA,
+                         20, 21, NA, NA, NA,
+                         26, 27, 28, NA, NA,
+                         33, 34, 35, 36, NA,
+                         41, 42, 43, 44, 45), nrow=14, ncol=5, byrow=TRUE)
+grid.arrange(p02_01, p03_01, p03_02, p04_01, p04_02, p04_03, p05_01, p05_02, p05_03, p05_04,
+             p06_01, p06_02, p06_03, p06_04, p06_05, p07_01, p07_02, p07_03, p07_04, p07_05,
+             p07_06, p08_01, p08_02, p08_03, p08_04, p08_05, p08_06, p08_07, p09_01, p09_02,
+             p09_03, p09_04, p09_05, p09_06, p09_07, p09_08, p10_01, p10_02, p10_03, p10_04,
+             p10_05, p10_06, p10_07, p10_08, p10_09, layout_matrix=layout_matrix)
+```
+
+```{r fig.width=10, fig.height=25}
+library(ggdendro)
+
+man_shd <- ggdendrogram(hclust(as.dist(as.matrix(read.table('manhattan.shared.txt')))), rotate=TRUE) + ggtitle('Manhattan, shared k-mers')
+man_all <- ggdendrogram(hclust(as.dist(as.matrix(read.table('manhattan.all.txt')))), rotate=TRUE)    + ggtitle('Manhattan, all k-mers')
+euc_shd <- ggdendrogram(hclust(as.dist(as.matrix(read.table('euclidean.shared.txt')))), rotate=TRUE) + ggtitle('Euclidean, shared k-mers')
+euc_all <- ggdendrogram(hclust(as.dist(as.matrix(read.table('euclidean.all.txt')))), rotate=TRUE)    + ggtitle('Euclidean, all k-mers')
+cos_shd <- ggdendrogram(hclust(as.dist(as.matrix(read.table('cosine.shared.txt')))), rotate=TRUE)    + ggtitle('Cosine, shared k-mers')
+cos_all <- ggdendrogram(hclust(as.dist(as.matrix(read.table('cosine.all.txt')))), rotate=TRUE)       + ggtitle('Cosine, all k-mers')
+can_shd <- ggdendrogram(hclust(as.dist(as.matrix(read.table('canberra.shared.txt')))), rotate=TRUE)  + ggtitle('Canberra, shared k-mers')
+can_all <- ggdendrogram(hclust(as.dist(as.matrix(read.table('canberra.all.txt')))), rotate=TRUE)     + ggtitle('Canberra, all k-mers')
+jac_shd <- ggdendrogram(hclust(as.dist(as.matrix(read.table('jaccard.shared.txt')))), rotate=TRUE)   + ggtitle('Jaccard, shared k-mers')
+jac_all <- ggdendrogram(hclust(as.dist(as.matrix(read.table('jaccard.all.txt')))), rotate=TRUE)      + ggtitle('Jaccard, all k-mers')
+
+grid.arrange(man_shd, man_all, euc_shd, euc_all, cos_shd, cos_all, can_shd, can_all, jac_shd, jac_all,
+             layout_matrix=matrix(c(1,2,3,4,5,6,7,8,9,10), nrow=5, ncol=2, byrow=TRUE))
 ```

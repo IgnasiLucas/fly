@@ -317,7 +317,7 @@ library(ggplot2)
 library(gridExtra)</code></pre>
 <p>The K-mer analysis toolkit produces ‘density plots’. They are heatmaps that combine the GC content of k-mers with their frequency in the input file, which is a fasta file in this case. However, the plots made by <code>kat</code> are not easy to compare, because <code>kat</code> automatically sets the range of k-mer frequencies that are displayed, producing very different plots for different input files. Below, I assume that <code>kat gcp</code> counts k-mer occurrences between 0 and 1000, which I think is always the case.</p>
 <pre class="r"><code>for (i in 1:10) {
-   input    &lt;- sprintf(&#39;kat-gcp%02i.mx&#39;, i)
+   input    &lt;- sprintf(&#39;GC/kat-gcp%02i.mx&#39;, i)
    gcp      &lt;- read.table(input)
    gcp$GC   &lt;- seq(0,26)
    gcp_long &lt;- gather(gcp, key=&#39;multiplicity&#39;, value=&#39;frequency&#39;, 1:1001)

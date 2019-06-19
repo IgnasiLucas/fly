@@ -3,26 +3,20 @@ Kmer Analysis Toolkit (KAT) V2.4.1
 Running KAT in GCP mode
 ------------------------
 
-Input 1 is a sequence file.  Counting kmers for input 1 (derep10.fa) ...
-Warning: Specified hash size insufficent - attempting to double hash size... success!
+Loading hashes into memory... done.  Time taken: 248.7s
 
-Warning: Specified hash size insufficent - attempting to double hash size... success!
-
-Warning: Specified hash size insufficent - attempting to double hash size... success!
- done.  Time taken: 1048.0s
-
-Analysing kmers in hash ...done.  Time taken: 189.7s
+Analysing kmers in hash ...done.  Time taken: 184.7s
 
 Merging matrices ...done.  Time taken: 0.0s
 
 Saving results to disk ... done.  Time taken: 0.0s
 
-Creating plot ... done.  Time taken: 1.8s
+Creating plot ... done.  Time taken: 1.9s
 
 Analysing peaks
 ---------------
 
-Analysing distributions for: kat-gcp.mx ... done.  Time taken:  3.2s
+Analysing distributions for: GC/kat-gcp10.mx ... done.  Time taken:  3.0s
 
 K-mer frequency spectra statistics
 ----------------------------------
@@ -64,5 +58,5 @@ Plotting GC distributions ... done. Saved to: None
 
 
 KAT GCP completed.
-Total runtime: 1243.5s
+Total runtime: 439.2s
 

@@ -1,0 +1,66 @@
+Kmer Analysis Toolkit (KAT) V2.4.1
+
+Running KAT in COMP mode
+------------------------
+
+Loading hashes into memory...Loading hashes into memory...Loading hashes into memory... done.  Time taken: 260.3s
+
+ done.  Time taken: 273.5s
+
+ done.  Time taken: 273.5s
+
+Comparing hashes ... done.  Time taken: 69.9s
+
+Merging results ... done.  Time taken: 4.3s
+
+Saving results to disk ... done.  Time taken: 0.3s
+
+
+Summary statistics
+------------------
+
+K-mer statistics for: 
+ - Hash 1: "histograms/sample10-hash.jf27"
+ - Hash 2: "histograms/sample06-hash.jf27"
+
+Total K-mers in: 
+ - Hash 1: 1126538169
+ - Hash 2: 1991580296
+
+Distinct K-mers in:
+ - Hash 1: 482733922
+ - Hash 2: 503926002
+
+Total K-mers only found in:
+ - Hash 1: 883888286
+ - Hash 2: 1391455370
+
+Distinct K-mers only found in:
+ - Hash 1: 414070644
+ - Hash 2: 435262724
+
+Shared K-mers:
+ - Total shared found in hash 1: 242649883
+ - Total shared found in hash 2: 600124926
+ - Distinct shared K-mers: 68663278
+
+Distance between spectra 1 and 2 (all k-mers):
+ - Manhattan distance: 7.30482e+07
+ - Euclidean distance: 4.06592e+07
+ - Cosine distance: 0.00121757
+ - Canberra distance: 734.578
+ - Jaccard distance: 0.137865
+
+Distance between spectra 1 and 2 (shared k-mers):
+ - Manhattan distance: 1.4803e+07
+ - Euclidean distance: 4.28082e+06
+ - Cosine distance: 0.00375234
+ - Canberra distance: 653.924
+ - Jaccard distance: 0.194611
+
+Creating plot(s) ... done.  Time taken: 3.6s
+
+Current configuration does not support peak analysis.
+KAT COMP completed.
+Total runtime: 353.9s
+

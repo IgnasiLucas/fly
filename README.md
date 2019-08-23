@@ -1,5 +1,4 @@
-Fly
-===
+# Fly
 
 This is a collaboration with Pau Carazo and Zahida Sultanova. We need to genotype
 some flies at several loci along the X chromosome. The SNP arrays commercially available
@@ -10,43 +9,50 @@ in updating the GBS protocol, I will prepare a pilot experiment.
 As usual, below I explain the goal of the analyses run in each folder, in reverse
 chronological order.
 
-2016-12-09
-==========
+------------------------------------------------------------------------------------
+## 2019-06-11
+k-mer analysis of some preliminar fly gut microbiota metagenomics data. My goal is to
+assess data quality and levels of diversity before assembly. You can see rendered
+versions of the reports in the following links:
+
+* [Analysis of sequence redundancy](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2019-06-11/Sequence_Redundancy.html)
+* [GC and k-mer frequency heatmaps](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2019-06-11/GCP_heatmaps.html)
+* [k-mer frequency-based comparison among samples](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2019-06-11/Comparisons.html)
+
+## 2016-12-15
+Use freebayes with the four fastq files that contain unambiguously identified reads,
+in order to identify diagnostic SNPs. But I interrumpted this analysis here, because
+the real experiment of which this was a pilot got cancelled, for strategical reasons.
+
+## 2016-12-09
 I want to call variants and estimate the potential heterozygosity among lines. I want to
 use both mpileup and freebayes, and maybe GATK as well.
 
-
-2016-12-08
-==========
+## 2016-12-08
 I run step 1 of pyrad (demultiplexing), to compare the results with those of sabre, and
 to get an idea of how many more reads we can save from the undetermined fastq files.
 I also generate the histograms of merged read lengths.
 
-2016-12-03
-==========
+## 2016-12-03
 I use bedtools to compare the bam files among the 4 samples. It is clear that
 sample 1, processed with only 12 PCR cycles, has a better distribution of coverage
 per site. All samples have more than 12000 sites covered at least 6 times, and
 more than 9000 of them are covered at least 6 times in all 4 samples.
 
-2016-11-28
-==========
+## 2016-11-28
 Merged paired reads, trimmed adapters, and mapped them to the reference genome.
 
 
-2016-11-25
-==========
+## 2016-11-25
 Demultiplexed the fastq files provided by the sequencing center. I am keeping track of the
 contradictions between the indices and the in-line barcode.
 
 
-2016-10-04
-==========
+## 2016-10-04
 The goal here is to calculate the composition of the ligation reactions, in order to have
 a 10 fold excess of adapters to fragment ends
 
-2016-09-22
-==========
+## 2016-09-22
 I use simuPop to simulate 20 generations of full-sib mating, and estimate the effect of
 inbreeding on the tracts of an autosome that are not identical by descent yet. The simulations
 reproduce the expected increase of inbreeding coeficient (F). However, the variance of F
@@ -54,13 +60,11 @@ is high in general, and even higher in the absence of recombination in the male 
 Drosophila melanogaster. As a consequence of this variance, we expect almost 50% of flies
 inbred by full-sib mating for only 10 generations to be already completely homozygous.
 
-2016-06-09
-==========
+## 2016-06-09
 Design of 12 adapters with in-line 8-nucloetide codewords, for use with restriction enzyme
 NspI.
 
-2016-04-12
-==========
+## 2016-04-12
 
 The original goal was to check if the presence of X-specific sequences in Drosophila,
 involved in the gene-dose compensation system, allowed for an enrichment of X-chromosome

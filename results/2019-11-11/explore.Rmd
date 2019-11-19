@@ -1,0 +1,77 @@
+---
+title: "Exploring read lengths"
+author: "Ignasi"
+date: "18/11/2019"
+output: html_document
+---
+
+```{r setup}
+library(tidyr)
+library(ggplot2)
+RL <- read.table('ReadLengths.txt', skip = 1,
+                 col.names=c("Len","R1","R2","clean1","clean2","single1","single2","merged","not1","not2"))
+```
+
+The `ReadLengths.txt` table shows the observed length distribution of different types
+of reads:
+
+* **R1.** Raw forward reads.
+* **R2.** Raw reverse reads.
+* **clean1.** Possibly trimmed forward reads from read pairs both ends of which
+   passed the quality filters.
+* **clean2.** Possibly trimmed reverse reads from read pairs both ends of which
+   passed the quality filters.
+* **single1.** Possibly trimmed forward reads from read pairs the reverse read of
+   which did not pass the quality filters.
+* **single2.** Possibly trimmed reverse reads from read pairs the forward read of
+   which did not pass the quality filters.
+* **merged.** Read pairs that have been merged, after having passed the filters.
+* **not1.** Forward reads from pairs that passed the quality filters but did not
+   get merged.
+* **not2.** Reverse reads from pairs that passed the quality filters but did not
+   get merged.
+   
+We can check that some expected relationships hold. For example, `sum(RL$R1) == sum(RL$R2))` is `r sum(RL$R1) == sum(RL$R2)`, `sum(RL$clean1) == sum(RL$clean2)` is
+`r sum(RL$clean1) == sum(RL$clean2)`, and `sum(RL$not1) == sum(RL$not2)` is
+`r sum(RL$not1) == sum(RL$not2)`, because all those are paired reads. However, the
+length distributions of paired reads do not have to match, after the trimming
+associated with quality control.
+
+We can visualize length distributions as lines, because data is already frequency.
+The large differences in frequency among lengths make a logarithmic scale convenient
+on the y axis. The data being in a wide format, I would use basic plot functions:
+
+```{r plotfreq}
+plot(c(50, 300), c(1, 1.0e+7), type='n', xlab='Length', ylab='Frequency', log='y')
+lines(RL$Len, RL$clean1, col='pink')
+lines(RL$Len, RL$clean2, col='blue')
+```
+
+To do the same with ggplot2, I would transform the data to a long format. 
+
+```{r ggplot2, message=FALSE}
+RL_long <- gather(RL, key='Reads', value='Freq', -1)  # all columns, except the first.
+ggplot(data=RL_long[RL_long$Reads %in% c('clean1','clean2'),],
+       mapping=aes(x=Len, y=Freq, color=Reads)) +
+  geom_line() + scale_y_log10()
+```
+
+The following plot makes it evident that the reads that did not get merged
+are but a subset of those that passed the quality control.
+
+```{r unmerged}
+plot(c(50,300), c(1,1.0e+7), type='n', xlab='Length', ylab='Frequency', log='y')
+lines(RL$Len, RL$clean1, col='gray')
+lines(RL$Len, RL$not1)
+
+plot(c(50,300), c(1,1.0e+7), type='n', xlab='Length', ylab='Frequency', log='y')
+lines(RL$Len, RL$clean2, col='gray')
+lines(RL$Len, RL$not2)
+```
+
+Maybe the most interesting plot is the length distribution of merged reads.
+
+```{r merged}
+plot(c(50,600), c(1, 1.0e+7), type='n', xlab='Length', ylab='Frequency', log='y')
+lines(RL$Len, RL$merged)
+```

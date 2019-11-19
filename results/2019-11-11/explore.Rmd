@@ -5,9 +5,12 @@ date: "18/11/2019"
 output: html_document
 ---
 
-```{r setup}
+```{r setup, warnings=FALSE}
 library(tidyr)
 library(ggplot2)
+library(plyr)
+library(reactable)
+
 RL <- read.table('ReadLengths.txt', skip = 1,
                  col.names=c("Len","R1","R2","clean1","clean2","single1","single2","merged","not1","not2"))
 ```
@@ -33,45 +36,101 @@ of reads:
    
 We can check that some expected relationships hold. For example, `sum(RL$R1) == sum(RL$R2))` is `r sum(RL$R1) == sum(RL$R2)`, `sum(RL$clean1) == sum(RL$clean2)` is
 `r sum(RL$clean1) == sum(RL$clean2)`, and `sum(RL$not1) == sum(RL$not2)` is
-`r sum(RL$not1) == sum(RL$not2)`, because all those are paired reads. However, the
-length distributions of paired reads do not have to match, after the trimming
-associated with quality control.
+`r sum(RL$not1) == sum(RL$not2)`, because all those are paired reads. Let's take
+a look at what happenned to reads during quality control. Starting from `r sum(RL$R1)`
+read pairs, `r (sum(RL$R1) - sum(RL$clean1)) / sum(RL$R1)`% were removed by the quality filter.
+Some were removed because of their own quality, and some became single ends, because
+their pairs had too low quality. We can break down those numbers, for forward and
+reverse reads separately:
+
+```{r counting}
+R1 <- sum(RL$R1)
+R2 <- sum(RL$R2) # == R1
+R1.clean <- sum(RL$clean1)
+R2.clean <- sum(RL$clean2) # == R1.clean
+R1.single <- sum(RL$single1)
+R2.single <- sum(RL$single2) # != R1.single
+R1.lost <- R1 - R1.clean - R1.single
+R2.lost <- R2 - R2.clean - R2.single
+# Partners of lost ends must remain single, unles also lost:
+R1.single <= R2.lost
+R2.single <= R1.lost
+
+R1.merged <- sum(RL$merged)
+R2.merged <- R1.merged
+R1.unmerged <- sum(RL$not1)
+R2.unmerged <- sum(RL$not2) # == R1.unmerged
+
+Totals <- data.frame(
+   merged = c(R1.merged, R2.merged),
+   unmerged = c(R1.unmerged, R2.unmerged),
+   single = c(R1.single, R2.single),
+   filtered = c(R1.lost, R2.lost),
+   end = c("R1", "R2"))
+
+Totals_long <- gather(Totals, key='reads', value='count', 1:4)
+ggplot(data=Totals_long, mapping=aes(x=end, y=count, fill=reads)) + geom_col()
+```
+
+Let's now take a look at the length distributions.
+
+```{r average}
+MeanLen <- function(x, freq){
+   T <- sum(freq)
+   M <- sum(x * (freq / T))
+   return(M)
+}
+VarLen <- function(x, freq){
+   M <- MeanLen(x, freq)
+   V <- (1.0 / (sum(freq) - 1.0)) * sum(freq * (x - M)^2)
+   return(V)
+}
+
+RL_long <- gather(RL, key='Reads', value='Freq', -1)  # all columns, except the first.
+
+ReadLengths <- ddply(RL_long, .variables='Reads', summarize, 
+                     Mean=MeanLen(Len,Freq),
+                     Variance=VarLen(Len,Freq))
+reactable(ReadLengths)
+```
 
 We can visualize length distributions as lines, because data is already frequency.
 The large differences in frequency among lengths make a logarithmic scale convenient
 on the y axis. The data being in a wide format, I would use basic plot functions:
 
 ```{r plotfreq}
-plot(c(50, 300), c(1, 1.0e+7), type='n', xlab='Length', ylab='Frequency', log='y')
-lines(RL$Len, RL$clean1, col='pink')
+plot(c(50, 300), c(1, 1.0e+7), type='n', xlab='Length', ylab='Frequency', log='y', main='Clean reads')
+lines(RL$Len, RL$clean1, col='orange')
 lines(RL$Len, RL$clean2, col='blue')
+legend(225, 100, legend=c('Forward', 'Reverse'), col=c('orange', 'blue'), lty=c(1,1))
 ```
 
-To do the same with ggplot2, I would transform the data to a long format. 
+To do the same with ggplot2, I use the long format version, created before. 
 
-```{r ggplot2, message=FALSE}
-RL_long <- gather(RL, key='Reads', value='Freq', -1)  # all columns, except the first.
+```{r ggplot2, warnings=FALSE}
 ggplot(data=RL_long[RL_long$Reads %in% c('clean1','clean2'),],
        mapping=aes(x=Len, y=Freq, color=Reads)) +
-  geom_line() + scale_y_log10()
+  geom_line() + scale_y_log10() + xlim(50,300)
 ```
 
 The following plot makes it evident that the reads that did not get merged
 are but a subset of those that passed the quality control.
 
 ```{r unmerged}
-plot(c(50,300), c(1,1.0e+7), type='n', xlab='Length', ylab='Frequency', log='y')
+plot(c(50,300), c(1,1.0e+7), type='n', xlab='Length', ylab='Frequency', log='y', main='Forward reads')
 lines(RL$Len, RL$clean1, col='gray')
 lines(RL$Len, RL$not1)
+legend(50, 5.0e+6, legend=c('All clean', 'Not merged'), col=c('gray', 'black'), lty=c(1,1))
 
-plot(c(50,300), c(1,1.0e+7), type='n', xlab='Length', ylab='Frequency', log='y')
+plot(c(50,300), c(1,1.0e+7), type='n', xlab='Length', ylab='Frequency', log='y', main='Reverse reads')
 lines(RL$Len, RL$clean2, col='gray')
 lines(RL$Len, RL$not2)
+legend(50, 5.0e+6, legend=c('All clean', 'Not merged'), col=c('gray', 'black'), lty=c(1,1))
 ```
 
 Maybe the most interesting plot is the length distribution of merged reads.
 
 ```{r merged}
-plot(c(50,600), c(1, 1.0e+7), type='n', xlab='Length', ylab='Frequency', log='y')
+plot(c(50,600), c(1, 1.0e+7), type='n', xlab='Length', ylab='Frequency', log='y', main='Merged reads')
 lines(RL$Len, RL$merged)
 ```

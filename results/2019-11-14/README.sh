@@ -20,29 +20,26 @@ SAMPLE=(E10A E10B E10C       E11A E11B E11C       E12A E12B E12C       E14A E14B
 # Some steps admit a specification of the number of threads to use, which should be
 # customized according to the processors available in the computer.
 
-NUM_THREADS=4
+NUM_THREADS=60
 
 # Importing data
 # --------------
 #
 # I will run two parallel analyses, one starting from the cleaned data, originally in paired
-# end format, and one with the merged or joined reads.
+# end format, and one with the merged or joined reads. It is not wise to respect pre-existing
+# manifest files, which may have been uploaded from a computer different from which this runs.
+#
+# This creates a manifest file of type "PairedEndFastqManifestPhred33V2".
+echo -e "sampleid\tforward-absolute-filepath\treverse-absolute-filepath" > CleanedManifest.txt
+for i in ${SAMPLE[@]}; do
+   echo -e "$i\t$DATADIR/cleaned/${i}_1.fastq.gz\t$DATADIR/cleaned/${i}_2.fastq.gz" >> CleanedManifest.txt
+done
 
-if [ ! -e CleanedManifest.txt ]; then
-   # This creates a manifest file of type "PairedEndFastqManifestPhred33V2".
-   echo -e "sampleid\tforward-absolute-filepath\treverse-absolute-filepath" > CleanedManifest.txt
-   for i in ${SAMPLE[@]}; do
-      echo -e "$i\t$DATADIR/cleaned/${i}_1.fastq.gz\t$DATADIR/cleaned/${i}_2.fastq.gz" >> CleanedManifest.txt
-   done
-fi
-
-if [ ! -e MergedManifest.txt ]; then
-   # This creates a file of type "SingleEndFastqManifestPhred33V2".
-   echo -e "sampleid\tabsolute-filepath" > MergedManifest.txt
-   for i in ${SAMPLE[@]}; do
-      echo -e "$i\t$DATADIR/joined/${i}.extendedFrags.fastq.gz" >> MergedManifest.txt
-   done
-fi
+# This creates a file of type "SingleEndFastqManifestPhred33V2".
+echo -e "sampleid\tabsolute-filepath" > MergedManifest.txt
+for i in ${SAMPLE[@]}; do
+   echo -e "$i\t$DATADIR/joined/${i}.extendedFrags.fastq.gz" >> MergedManifest.txt
+done
 
 # I run the following two processes in parallele (sending them to the background
 # with the "&" symbol). When I do that, I want each process to send error or other
@@ -77,18 +74,33 @@ wait
 # figures folder inside the data directory. All reads seem to have qualities close
 # to 40, and always above 30 before those thresholds. However, it would be good to
 # optimize those thresholds.
+# To merge paired ends, I have to specify at what point near the 3' end reads must
+# be trimmed, to remove low quality edges. A first attempt, informed by the quality
+# profiles of the reads was not very successful, in comparison with the number of
+# reads merged by the sequencing facilities. I could just use the already merged
+# reads, but I would like to merge them myself. I can run some combinations of parameters
+# and see which one performs better. Here, I use a relaxed maximum number of expected
+# errors per read.
 
-if [ ! -e FromClean/FeatureTable.qza ]; then
-   qiime dada2 denoise-paired --i-demultiplexed-seqs FromClean/fastq.qza \
-                              --p-trunc-len-f 250 \
-                              --p-trunc-len-r 225 \
-                              --p-min-fold-parent-over-abundance 2.0 \
-                              --p-n-threads $NUM_THREADS \
-                              --o-table FromClean/FeatureTable.qza \
-                              --o-representative-sequences FromClean/FeatureSeq.qza \
-                              --o-denoising-stats FromClean/DenoisingStats.qza \
-   1> FromClean/denoising.log 2> FromClean/denoising.err &
-fi
+for TRUNC_F in 200 225 250 275 295; do
+   for TRUNC_R in 200 225 250 275 295; do
+      if [ ! -d FromClean/F${TRUNC_F}_R${TRUNC_R} ]; then mkdir FromClean/F${TRUNC_F}_R${TRUNC_R}; fi
+      if [ ! -e FromClean/F${TRUNC_F}_R${TRUNC_R}/FeatureTable.qza ]; then
+         qiime dada2 denoise-paired --i-demultiplexed-seqs FromClean/fastq.qza \
+                                    --p-trunc-len-f $TRUNC_F \
+                                    --p-trunc-len-r $TRUNC_R \
+                                    --p-max-ee-f 10 \
+                                    --p-max-ee-r 10 \
+                                    --p-min-fold-parent-over-abundance 2.0 \
+                                    --p-n-threads $(( NUM_THREADS / 5 )) \
+                                    --o-table FromClean/F${TRUNC_F}_R${TRUNC_R}/FeatureTable.qza \
+                                    --o-representative-sequences FromClean/F${TRUNC_F}_R${TRUNC_R}/FeatureSeq.qza \
+                                    --o-denoising-stats FromClean/F${TRUNC_F}_R${TRUNC_R}/DenoisingStats.qza \
+         1> FromClean/F${TRUNC_F}_R${TRUNC_R}/denoising.log 2> FromClean/F${TRUNC_F}_R${TRUNC_R}/denoising.err &
+      fi
+   done
+   wait
+done
 
 if [ ! -e FromMerged/FeatureTable.qza ]; then
    qiime dada2 denoise-single --i-demultiplexed-seqs FromMerged/fastq.qza \
@@ -100,6 +112,16 @@ if [ ! -e FromMerged/FeatureTable.qza ]; then
                               --o-denoising-stats FromMerged/DenoisingStats.qza \
    1> FromMerged/denoising.log 2> FromMerged/denoising.err &
 fi
-
 wait
 
+# Instead of looping again along the parameter values, I use 'find'. Apparently, the syntax below works
+# because the command string passed to 'bash -c' is single-quoted (not double quoted), so that the positional
+# argument $0 is not substituted by the process calling bash, but by the new one executed by the bash call.
+
+find . -name DenoisingStats.qza -exec bash -c 'if [ ! -e $(dirname $0)/stats.tsv ]; then qiime tools export --input-path $0 --output-path $(dirname $0); fi' '{}' \;
+
+if [ ! -e FromClean/summaryStats.txt ]; then
+   echo -e "sample\tinput\tfiltered\tpercent.pass\tdenoised\tmerged\tpercent.merged\tnon-chimeric\tpercent.non-chimeric\tforward-trunc.\treverse-trunc." > FromClean/summaryStats.txt
+   # It turns out that 'qiime tools export' introduced Windows-like end-of-lines, with the \r character!
+   find . -name stats.tsv -exec gawk '(NR == 1){split(FILENAME,A,/\/F|\_R|\/s/)}(NR > 2){gsub(/\r/,""); print $0 "\t" A[3] "\t" A[4]}' '{}' >> FromClean/summaryStats.txt \;
+fi

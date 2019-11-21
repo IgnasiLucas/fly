@@ -10,6 +10,16 @@ As usual, below I explain the goal of the analyses run in each folder, in revers
 chronological order.
 
 ------------------------------------------------------------------------------------
+
+## 2019-11-14
+Started applying the qiime pipeline to the first batch of amplicon sequences.
+
+## 2019-11-11
+We got the fastq files from the first batch of amplicon sequencing. The provider run some
+preliminary analysis, and delivered a report on the results of the quality control process
+for every sample. Here, I pool all samples together to look at the numbers of reads and
+their length distributions along the pipeline. You can see a report [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2019-11-11/explore.html)
+
 ## 2019-06-11
 k-mer analysis of some preliminar fly gut microbiota metagenomics data. My goal is to
 assess data quality and levels of diversity before assembly. You can see rendered

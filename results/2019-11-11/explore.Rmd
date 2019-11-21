@@ -5,7 +5,7 @@ date: "18/11/2019"
 output: html_document
 ---
 
-```{r setup, warnings=FALSE}
+```{r setup, message=FALSE}
 library(tidyr)
 library(ggplot2)
 library(plyr)
@@ -89,8 +89,8 @@ VarLen <- function(x, freq){
 RL_long <- gather(RL, key='Reads', value='Freq', -1)  # all columns, except the first.
 
 ReadLengths <- ddply(RL_long, .variables='Reads', summarize, 
-                     Mean=MeanLen(Len,Freq),
-                     Variance=VarLen(Len,Freq))
+                     Mean=round(MeanLen(Len,Freq), 2),
+                     Variance=round(VarLen(Len,Freq), 2))
 reactable(ReadLengths)
 ```
 
@@ -107,7 +107,7 @@ legend(225, 100, legend=c('Forward', 'Reverse'), col=c('orange', 'blue'), lty=c(
 
 To do the same with ggplot2, I use the long format version, created before. 
 
-```{r ggplot2, warnings=FALSE}
+```{r ggplot2, warning=FALSE}
 ggplot(data=RL_long[RL_long$Reads %in% c('clean1','clean2'),],
        mapping=aes(x=Len, y=Freq, color=Reads)) +
   geom_line() + scale_y_log10() + xlim(50,300)

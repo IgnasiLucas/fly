@@ -12,7 +12,15 @@ chronological order.
 ------------------------------------------------------------------------------------
 
 ## 2019-11-14
-Started applying the qiime pipeline to the first batch of amplicon sequences.
+I imported the sequence data into qiime and de-noised the reads. I did it starting from
+both, the already merged reads, and the clean but not merged yet read pairs. This last
+way of processing the data is not necessary, but I was interested in checking how it
+works, and to evaluate the merged dataset offered by the sequencing services. I learned
+that dada2 routine in qiime2 applies a very simplistic assumption: the fragments from
+which reads originated are all of very similar lengths. This contrasts with the merged
+data available, with two high-frequency lengths (440, 465). In this situation, it seems
+that dada2 default settings in qiime2 can introduce a bias in composition. See the
+report [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2019-11-14/merging_optimization.html)
 
 ## 2019-11-11
 We got the fastq files from the first batch of amplicon sequencing. The provider run some

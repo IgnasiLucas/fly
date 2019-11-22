@@ -1,0 +1,69 @@
+---
+title: "Optimization of 3'-end trimming positions for merging paired ends with dada2"
+author: "Ignasi"
+date: "22/11/2019"
+output: html_document
+---
+
+The denoising step can be done with paired ends or with the already merged reads. I was surprised by
+the low proportion of successfully merged pairs by dada2 in some samples, in comparison to the number
+of merged reads available from the sequencing services. I suspected the problem was in the parameters
+that control the trimming of reads at their 3' ends before merging, and I tested several combinations
+of values between the two ends: 200, 225, 250, 275, and 295. Table `FromClean/summaryStats.txt` holds
+the summary statistics from all 25 runs.
+
+```{r setup, message=FALSE}
+library(ggplot2)
+library(tidyr)
+merging <- read.table('FromClean/summaryStats.txt', skip=1,
+                      col.names=c('Sample','input','filtered','filtered.p','denoised','merged','merged.p','trusted','trusted.p','trunc.f','trunc.r'))
+ggplot(merging, mapping=aes(x=as.factor(trunc.f), y=filtered.p)) + geom_boxplot() +
+  facet_wrap(~trunc.r) + xlab('Trimming position in forward reads') + ylab('% filtered')
+ggplot(merging, mapping=aes(x=as.factor(trunc.f), y=merged.p)) + geom_boxplot() +
+  facet_wrap(~trunc.r) + xlab('Trimming position in forward reads') + ylab('% merged')
+ggplot(merging, mapping=aes(x=as.factor(trunc.f), y=trusted.p)) + geom_boxplot() +
+  facet_wrap(~trunc.r) + xlab('Trimming position in forward reads') + ylab('% trusted')
+```
+
+I see that among the three steps executed with dada2 (filtering, merging, and removing chimeras), merging
+has a dramatic effect. First, there is a threshold effect, as expected if the two reads are too short to
+overlap at least 20 nucleotides (aparently required by dada2). Then, there is an evident limit to the
+performance of the merging step by the filtering step. The longer the trimming position, the fewer reads
+are left. This is because qiime discards reads shorter than the trimming position.
+
+Discarding short reads before attempting to merge them seems motivated by the fear of generating spurious
+mergings, and also by computational efficiency. However, these being reads that had already been trimmed
+before, during quality control, it is very unfortunate to deny the chance of merging high-quality, slightly
+shorter reads. Note that the overall merging performance when reverse reads are trimmed at position 225
+decreases between forward trimming positions 250 and 275. The only reason some shorter pairs that merged
+in the first place don't merge in the second is that they were removed. I would say that the underlying
+reason for this unnecessary loss of efficiency is the application of the *same* trimming positions to all
+read pairs. Read pairs vary in quality and origin. Cutting them all with the same *cookie-cutter* does not
+make the most efficient use of data.
+
+Another unfortunate generalization is to apply the same cutoffs to all samples. Not only valid data is
+unnecessarily thrown away, but bias is introduced. Recall the bimodal distribution of merged reads observed
+in `../2019-11-11/explore.html`. There are two high-frequency lengths (440 and 465), probably reflecting the
+fact that samples are dominated by lineages with or without a deletion (or an insertion) in the sequenced
+gene. The frequencies of the two gene lengths may differ among samples. To successfully merge reads from
+the longer genes, we require a longer minimum sum of lengths. Simply, `overlap = length1 + length2 - target`.
+Thus, the larger the target, the larger the sum of read lengths must be to get the minimum overlap of 20
+nucleotides required by qiime.
+
+In the plot below, see how some samples reach their maximum proportion of merged reads when reads are
+`225 +  250 = 475` nucleotides long, which is enough to reach an overlap of 20 for original fragments
+of up to 455 nucleotides, including one of the most frequent gene lengths of 440, but excluding the
+other one, of 465. Other samples, reach their maximum for reads of `225 + 275 = 500`, which are long enough
+to reach the minimum overlap for fragments 465 nucleotides long. But then, the samples dominated by
+the shorter genes lost part of the reads reporting their abundance.
+
+```{r bysample}
+ggplot(merging[merging$trunc.r==225,], mapping=aes(x=trunc.f, y=merged.p, color=Sample)) + geom_line() +
+  xlab('Trimming position on forward read') + ggtitle('225 nt-reverse reads') + ylab('% merged')
+```
+
+# Conclusion
+The program dada2 to merge reads is not adequate, because it requires all reads to be the same length
+before merging, as if all target fragments were the same length.
+
+I need to check if the merging process applied by the sequencing services is also afected by this bias.

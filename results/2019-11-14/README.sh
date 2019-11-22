@@ -123,5 +123,5 @@ find . -name DenoisingStats.qza -exec bash -c 'if [ ! -e $(dirname $0)/stats.tsv
 if [ ! -e FromClean/summaryStats.txt ]; then
    echo -e "sample\tinput\tfiltered\tpercent.pass\tdenoised\tmerged\tpercent.merged\tnon-chimeric\tpercent.non-chimeric\tforward-trunc.\treverse-trunc." > FromClean/summaryStats.txt
    # It turns out that 'qiime tools export' introduced Windows-like end-of-lines, with the \r character!
-   find . -name stats.tsv -exec gawk '(NR == 1){split(FILENAME,A,/\/F|\_R|\/s/)}(NR > 2){gsub(/\r/,""); print $0 "\t" A[3] "\t" A[4]}' '{}' >> FromClean/summaryStats.txt \;
+   find FromClean -name stats.tsv -exec gawk '(NR == 1){split(FILENAME,A,/\/F|\_R|\/s/)}(NR > 2){gsub(/\r/,""); print $0 "\t" A[2] "\t" A[3]}' '{}' >> FromClean/summaryStats.txt \;
 fi

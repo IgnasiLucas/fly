@@ -125,3 +125,7 @@ if [ ! -e FromClean/summaryStats.txt ]; then
    # It turns out that 'qiime tools export' introduced Windows-like end-of-lines, with the \r character!
    find FromClean -name stats.tsv -exec gawk '(NR == 1){split(FILENAME,A,/\/F|\_R|\/s/)}(NR > 2){gsub(/\r/,""); print $0 "\t" A[2] "\t" A[3]}' '{}' >> FromClean/summaryStats.txt \;
 fi
+
+if [ ! -e merging_optimization.html ]; then
+   R --save -q -e "rmarkdown::render('merging_optimization.Rmd', output_file='merging_optimization.html')"
+fi

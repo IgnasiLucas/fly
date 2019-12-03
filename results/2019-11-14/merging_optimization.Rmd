@@ -64,6 +64,10 @@ ggplot(merging[merging$trunc.r==225,], mapping=aes(x=trunc.f, y=merged.p, color=
 
 # Conclusion
 The program dada2 to merge reads is not adequate, because it requires all reads to be the same length
-before merging, as if all target fragments were the same length.
+before merging, as if all target fragments were the same length. Maybe a better way to show it would
+have been to unpack the merging results and look at their length distributions.
 
-I need to check if the merging process applied by the sequencing services is also afected by this bias.
+The sequencing center used [FLASH](https://dx.doi.org/10.1093/bioinformatics/btr507) to merge the paired
+ends, which assembles each pair independently, without assuming a common total length. Therefore, I
+abandon the idea of using the clean, unmerged pairs to run my own merging. Instead from now on I will
+use the reads merged by the sequencing service.

@@ -79,18 +79,19 @@ wait
 # profiles of the reads was not very successful, in comparison with the number of
 # reads merged by the sequencing facilities. I could just use the already merged
 # reads, but I would like to merge them myself. I can run some combinations of parameters
-# and see which one performs better. Here, I use a relaxed maximum number of expected
-# errors per read.
+# and see which one performs better. Here, I use a very relaxed maximum number of expected
+# errors per read, so that differences among runs can be attributed to the truncation point.
+# A value of 0 means that reads are neither truncated nor filtered by length.
 
-for TRUNC_F in 200 225 250 275 295; do
-   for TRUNC_R in 200 225 250 275 295; do
+for TRUNC_F in 200 225 250 275 295 0; do
+   for TRUNC_R in 200 225 250 275 295 0; do
       if [ ! -d FromClean/F${TRUNC_F}_R${TRUNC_R} ]; then mkdir FromClean/F${TRUNC_F}_R${TRUNC_R}; fi
       if [ ! -e FromClean/F${TRUNC_F}_R${TRUNC_R}/FeatureTable.qza ]; then
          qiime dada2 denoise-paired --i-demultiplexed-seqs FromClean/fastq.qza \
                                     --p-trunc-len-f $TRUNC_F \
                                     --p-trunc-len-r $TRUNC_R \
-                                    --p-max-ee-f 10 \
-                                    --p-max-ee-r 10 \
+                                    --p-max-ee-f 100 \
+                                    --p-max-ee-r 100 \
                                     --p-min-fold-parent-over-abundance 2.0 \
                                     --p-n-threads $(( NUM_THREADS / 5 )) \
                                     --o-table FromClean/F${TRUNC_F}_R${TRUNC_R}/FeatureTable.qza \

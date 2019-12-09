@@ -5,6 +5,14 @@ date: "25/11/2019"
 output: html_document
 ---
 
+```{r setup}
+library(biomformat)
+library(tidyr)
+library(ggplot2)
+library(plyr)
+library(reactable)
+```
+
 On 2019-11-14 I imported the reads into qiime2 and compared the already merged data to the results of
 merging the clean reads with dada2 in qimme2. I decided to work from the reads that had already been
 merged by the sequencing services with a program called FLASH. Here the goal is visualize the statistics
@@ -14,9 +22,6 @@ and main features of the dataset.
 Let's take a look first at the results of the de-noising process.
 
 ```{r visualize, cache=TRUE}
-library(biomformat)
-library(tidyr)
-library(ggplot2)
 DenoisedStats <- read.table('../2019-11-14/FromMerged/stats.tsv', skip=1, 
                             col.names=c('Sample','input','filtered','filtered.p','denoised',
                                         'trusted','trusted.p'),
@@ -43,10 +48,40 @@ ggplot(LongStats, mapping=aes(x=Sample, y=Reads, fill=Fate)) + geom_col() +
 ```
 
 # Features data
+The denoising step produced a features table, with the counts of observations of every unique sequence in
+every sample. That is a rather sparse matrix, with a wide range of values. The visualization `FeatureTable.qzv`
+can be viewd in [https://view.qiime2.org/]. I can reproduce here some of it. Exporting the table from qiime
+produced a biom object, which can be loaded in R with the `biomformat` package.
 
-```{r biom}
+```{r biom, message=FALSE}
 Features <- read_biom('FeatureTable.biom')
 # This would not work if the table was too big.
-FeatDF <- as.data.frame(as.matrx(biom_data(Features)))
+FeatDF <- as.data.frame(as.matrix(biom_data(Features)))
+SummTable <- data.frame(Metric=c('Number of samples', 'Number of features', 'Total frequency'),
+                        Sample=c(dim(FeatDF)[c(2,1)], sum(FeatDF)))
+```
 
+## Table summary
+```{r summaryTable, echo=FALSE}
+reactable(SummTable, striped=TRUE, highlight=TRUE)
+```
+
+## Frequency per sample
+```{r}
+reactable(as.data.frame(as.array(summary(sapply(FeatDF, sum)))))
+```
+
+```{r}
+# I want to preserve the order the features are placed.
+FeatDF$feature <- factor(rownames(FeatDF), levels=unique(rownames(FeatDF)), ordered=TRUE)
+rownames(FeatDF) <- NULL
+LongFeat <- pivot_longer(FeatDF, cols=c(1:80), names_to=c("Age","Isoline","Batch"),
+                         names_pattern="([LE])([0-9]+)([A-Z]+)", values_to="Count")
+LongFeat$Isoline <- factor(LongFeat$Isoline, levels=c(24,23,22,20,19,17,15,14,12,11,10,6), ordered=TRUE)
+SummFeat <- ddply(LongFeat, .variables=c("feature", "Age", "Isoline"), summarize,
+                  MeanCount = mean(Count), SDCount=sd(Count))
+ggplot(data=SummFeat, mapping=aes(x=feature, y=Isoline, fill=MeanCount)) +
+  geom_tile() + facet_wrap(~Age) +
+  scale_fill_gradientn(trans='log', colors=terrain.colors(10), breaks=c(5,50,500,3000)) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
 ```

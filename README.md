@@ -11,12 +11,22 @@ chronological order.
 
 ------------------------------------------------------------------------------------
 
+## 2019-11-25
+I reproduce the plots and tables offered by qiime's visualization of the table of
+'features' (a.k.a. exact sequence variants). I also produced a heatmap to visualize
+the whole abundance table. See the report [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2019-11-25/ExploreData.html)
+
+There are 2472 exact sequence variants. The most frequent abundance is also the lowest,
+2 observations in one sample. I suspect that a de-noising procedure with pooled samples
+would detect many more, low-frequency variants.
+
 ## 2019-11-14
 I imported the sequence data into qiime and de-noised the reads. I did it starting from
 both, the already merged reads, and the clean but not merged yet read pairs. This last
 way of processing the data is not necessary, but I was interested in checking how it
 works, and to evaluate the merged dataset offered by the sequencing services. I learned
-that dada2 routine in qiime2 applies a very simplistic assumption: the fragments from
+that dada2 trimming reads before merging and discarding reads shorter than the truncating
+point is bad practice, based on a flawed assumption: that fragments from
 which reads originated are all of very similar lengths. This contrasts with the merged
 data available, with two high-frequency lengths (440, 465). In this situation, it seems
 that dada2 default settings in qiime2 can introduce a bias in composition. See the

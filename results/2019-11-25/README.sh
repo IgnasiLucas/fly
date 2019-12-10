@@ -65,7 +65,7 @@ if [ ! -e FeatureTable.biom ]; then
    mv feature-table.biom FeatureTable.biom
 fi
 
-if [ ! -e data_exploration.html ]; then
-   R --save -q -e "rmarkdown::render('ExploreData.Rmd', output_file='data_exploration.html')"
+if [ ! -e ExploreData.html ]; then
+   R --save -q -e "rmarkdown::render('ExploreData.Rmd', output_file='ExploreData.html')"
 fi
 

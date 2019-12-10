@@ -45,9 +45,10 @@ ggplot(LongStats, mapping=aes(x=isoline, y=Reads, fill=Fate)) + geom_col() + fac
   ggtitle('Total number of reads per isoline')
 ggplot(LongStats, mapping=aes(x=Sample, y=Reads, fill=Fate)) + geom_col() +
   ggtitle('Total number of reads per sample') + theme(axis.text.x=element_text(angle=90,size=6))
+rm(list=ls())
 ```
 
-# Features data
+# Reproduction of qiime's visualization
 The denoising step produced a features table, with the counts of observations of every unique sequence in
 every sample. That is a rather sparse matrix, with a wide range of values. The visualization `FeatureTable.qzv`
 can be viewd in [https://view.qiime2.org/]. I can reproduce here some of it. Exporting the table from qiime
@@ -62,17 +63,139 @@ SummTable <- data.frame(Metric=c('Number of samples', 'Number of features', 'Tot
 ```
 
 ## Table summary
-```{r summaryTable, echo=FALSE}
-reactable(SummTable, striped=TRUE, highlight=TRUE)
+```{r summaryTable}
+reactable(SummTable, striped=TRUE, highlight=TRUE, columns=list(
+  Metric=colDef(style=list(fontWeight='bold')),
+  Sample=colDef(format=colFormat(digits=2, separators=TRUE))))
 ```
 
 ## Frequency per sample
-```{r}
-reactable(as.data.frame(as.array(summary(sapply(FeatDF, sum)))))
+```{r frequencyTable}
+TotalCountsPerSample <- sapply(FeatDF, sum)
+# summary() returns a table object that I cannot coerce into a data.frame without
+# turning it first into an array. I take that chance to edit row names.
+SummaryTotalCounts   <- data.frame(Frequency = array(summary(TotalCountsPerSample),
+                                                     dimnames=list(c('Minimum frequency',
+                                                                     '1st quantile',
+                                                                     'Median frequency',
+                                                                     'Mean frequency',
+                                                                     '3rd quantile',
+                                                                     'Maximum frequency'))))
+reactable(SummaryTotalCounts, striped=TRUE, highlight=TRUE, columns=list(
+  Frequency = colDef(format=colFormat(digits=2, separators=TRUE)),
+  .rownames = colDef(style=list(fontWeight='bold'))))
 ```
 
-```{r}
-# I want to preserve the order the features are placed.
+```{r histogramSamples}
+ggplot(data.frame(Freq=TotalCountsPerSample), mapping=aes(x=Freq)) +
+  geom_histogram(binwidth=14000, fill='lightblue') +
+  scale_x_continuous(breaks=c(20000,40000,60000,80000,100000,120000))+
+  geom_segment(aes(xend=Freq), y=0, yend=1, color='darkblue')+
+  theme(panel.background=element_rect(fill ='white'),
+        panel.border=element_rect(color='black', fill=NA)) +
+  xlab('Total counts per sample') +
+  ylab('Number of samples')
+```
+
+## Frequency per feature
+```{r FeatureFreq}
+TotalCountsPerFeature <- rowSums(as.matrix(biom_data(Features)))
+SummaryTotalCounts   <- data.frame(Frequency = array(summary(TotalCountsPerFeature),
+                                                     dimnames=list(c('Minimum frequency',
+                                                                     '1st quantile',
+                                                                     'Median frequency',
+                                                                     'Mean frequency',
+                                                                     '3rd quantile',
+                                                                     'Maximum frequency'))))
+reactable(SummaryTotalCounts, striped=TRUE, highlight=TRUE, columns=list(
+  Frequency = colDef(format=colFormat(digits=2, separators=TRUE)),
+  .rownames = colDef(style=list(fontWeight='bold'))))
+```
+
+This histogram of feature's frequencies uses a log-transformed coordinate, with bins having the
+same width in un-transformed scale. On the y axis, I use a square root transformation, instead
+of logarithmic, to preserve bins of frequency 0 or 1.
+
+```{r FeatureHistogram1}
+ggplot(data.frame(Freq=TotalCountsPerFeature), mapping=aes(x=Freq)) +
+  geom_histogram(fill='lightblue', bins=35, boundary=1) + # prevents Nan upon log transformation
+  coord_trans(x='log10') +
+  scale_y_sqrt() +
+  scale_x_continuous(breaks=c(1e1, 1e2, 1e3, 1e4, 1e5)) +
+  theme(panel.background=element_rect(fill='white'),
+        panel.border=element_rect(color='black', fill=NA)) +
+  xlab('Frequency per feature') + 
+  ylab('Number of features') 
+```
+
+It may be better to use an untransformed x axis.
+
+```{r FeatureHistogram2}
+ggplot(data.frame(Freq=TotalCountsPerFeature), mapping=aes(x=Freq)) +
+  geom_histogram(fill='lightblue', bins=35, boundary=0) +
+  scale_y_sqrt() +
+  theme(panel.background=element_rect(fill='white'),
+        panel.border=element_rect(color='black', fill=NA)) +
+  xlab('Frequency per feature') +
+  ylab('Number of features')
+```
+
+Let's zoom in:
+
+```{r zoomin, message=FALSE, warning=FALSE}
+ggplot(data.frame(Freq=TotalCountsPerFeature), mapping=aes(x=Freq)) +
+  geom_histogram(fill='lightblue', bins=250, boundary=0.5) +
+  scale_y_sqrt() +
+  xlim(c(0,250)) +
+  theme(panel.background=element_rect(fill='white'),
+        panel.border=element_rect(color='black', fill=NA)) +
+  xlab('Frequency per feature') +
+  ylab('Number of features')
+```
+
+The most frequent count is also the lowest: 2 per sample. This means that qiime2 applied dada2 separately on
+each sample, instead of pooling them. Pooling samples would have increased computation time, but
+also the power to detect low-frequency amplicons. I suppose it also means that any sequence
+seen only once (in a sample) is assumed to contain an error, the correction of which turns the
+sequence into its closest relative. I suspect pooling samples before error correction would
+prevent the spurious correction of some non-errors. Alternatively, it could just mean that singletons
+are by default excluded, for they can't be trusted and probably add too little information.
+
+## Sample detail
+
+```{r SampleDetail}
+reactable(data.frame(SampleID = names(TotalCountsPerSample),
+                     FeatureCount = TotalCountsPerSample,
+                     row.names=NULL),
+          striped = TRUE,
+          highlight = TRUE,
+          columns = list(
+            SampleID = colDef(name = 'Sample ID'),
+            FeatureCount = colDef(name = 'Feature Count')))
+```
+
+## Feature detail
+
+```{r FeatureDetail}
+NumSamplesIn <- rowSums(FeatDF > 0)
+reactable(data.frame(Frequency = TotalCountsPerFeature,
+                     NumSamplesIn = NumSamplesIn),
+          striped = TRUE,
+          highlight = TRUE,
+          columns = list(
+            Frequency = colDef(format = colFormat(separators=TRUE)),
+            NumSamplesIn = colDef(name = '# of Samples Observed In')))
+```
+
+# Heatmap
+We can visualize the whole data matrix as a heatmap. That may give us some insight. Note that
+I need to summarize the counts from replicates of the same isoline at the same time point. Here,
+I am plotting the mean count among replicates. I could have used the sum, even though not all
+isolines are replicated the same number of times. Anyways, the total number of reads per sample
+is very variable. That is to say I am not using any normalization here.
+
+```{r heatmap, cache=TRUE, message=FALSE, warning=FALSE}
+# I want to preserve the order of the features.
 FeatDF$feature <- factor(rownames(FeatDF), levels=unique(rownames(FeatDF)), ordered=TRUE)
 rownames(FeatDF) <- NULL
 LongFeat <- pivot_longer(FeatDF, cols=c(1:80), names_to=c("Age","Isoline","Batch"),

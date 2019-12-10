@@ -16,6 +16,9 @@ I reproduce the plots and tables offered by qiime's visualization of the table o
 'features' (a.k.a. exact sequence variants). I also produced a heatmap to visualize
 the whole abundance table. See the report [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2019-11-25/ExploreData.html)
 
+Unfortunately, the tables from the *reactable* package do not work in the link above.
+Please, download the 2019-11-25/ExploreData.html file and open it in your browser.
+
 There are 2472 exact sequence variants. The most frequent abundance is also the lowest,
 2 observations in one sample. I suspect that a de-noising procedure with pooled samples
 would detect many more, low-frequency variants.

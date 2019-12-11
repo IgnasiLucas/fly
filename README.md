@@ -10,7 +10,8 @@ life cycle. We sequenced 16S rRNA gene amplicons and we are analyzing them with 
 The second batch of sequences arrived. Three of the 28 combinations of isoline and time
 point lack replicates. There are large differences in number of reads and in merging
 success rate among samples. The dominant merged lengths are the same as in the first
-batch.
+batch. See the report [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2019-12-11/explore.html).
+But, again, be aware that a table is not rendering properly in that preview.
 
 ## 2019-11-25
 I reproduce the plots and tables offered by qiime's visualization of the table of

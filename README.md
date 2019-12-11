@@ -1,13 +1,8 @@
 # Fly
 
-This is a collaboration with Pau Carazo and Zahida Sultanova. We need to genotype
-some flies at several loci along the X chromosome. The SNP arrays commercially available
-are too expensive, and would only make sense if we had to genotype a very large number
-of samples. There are other options, that I am not familiar with yet. Since I am interested
-in updating the GBS protocol, I will prepare a pilot experiment.
-
-As usual, below I explain the goal of the analyses run in each folder, in reverse
-chronological order.
+This is a collaboration with Pau Carazo and Zahida Sultanova. We are comparing the gut
+microbiome of several Drosophila melanogaster isolines, at two time points in their
+life cycle. We sequenced 16S rRNA gene amplicons and we are analyzing them with qiime2.
 
 ------------------------------------------------------------------------------------
 

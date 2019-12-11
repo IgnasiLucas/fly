@@ -208,3 +208,36 @@ ggplot(data=SummFeat, mapping=aes(x=feature, y=Isoline, fill=MeanCount)) +
   scale_fill_gradientn(trans='log', colors=terrain.colors(10), breaks=c(5,50,500,3000)) +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
 ```
+
+# PCA
+Just to add another visualization, this time I do transform abundance to the logarithm of
+relative frequency. I impute the frequency of unobserved variants in a sample as the overall
+frequency, just to avoid missing data. There must be better ways. This plot is not to be
+taken too seriously, but it suggests something weird is happening with samples E11A, E17A and
+E19C. These are not samples with particularly low overall counts.
+
+```{r pca}
+OverallFreq <- rowSums(as.matrix(biom_data(Features)))/sum(as.matrix(biom_data(Features)))
+LongFeatTransformed <- ddply(LongFeat,
+                             .variables = c('Age','Isoline','Batch'),
+                             .fun = function(x) {
+                               Freq <- x$Count / sum(x$Count)
+                               Freq[Freq == 0] <- OverallFreq[x$feature[Freq == 0]]
+                               return(data.frame(
+                                 feature = x$feature,
+                                 Age = x$Age,
+                                 Isoline = x$Isoline,
+                                 Batch = x$Batch,
+                                 Count = x$Count,
+                                 LogFreq = log(Freq)))})
+LogFreqDF <- pivot_wider(LongFeatTransformed,
+                         id_cols=c('Age','Isoline','Batch'),
+                         names_from='feature',
+                         values_from='LogFreq')
+pca <- prcomp(LogFreqDF[4:2475], retx=TRUE, center=TRUE, scale.=TRUE)
+pcaDF <- data.frame(Age = LogFreqDF$Age,
+                    Isoline = LogFreqDF$Isoline,
+                    Name = paste(LogFreqDF$Age, LogFreqDF$Isoline, LogFreqDF$Batch, sep=''),
+                    pca$x)
+ggplot(pcaDF, mapping=aes(x=PC1, y=PC2, color=Age)) + geom_text(aes(label=Name))
+```

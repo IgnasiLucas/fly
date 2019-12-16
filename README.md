@@ -6,6 +6,12 @@ life cycle. We sequenced 16S rRNA gene amplicons and we are analyzing them with 
 
 ------------------------------------------------------------------------------------
 
+## 2019-12-12
+I run dada2 on the whole dataset, pooling samples before calling the unique variants.
+It took around 20 hours. Unfortunately, I had to remove reads that included Ns. The
+first sequencing batch was hardly affected. But we lost about 50% of reads from the
+second batch, which is inadmissible.
+
 ## 2019-12-11
 The second batch of sequences arrived. Three of the 28 combinations of isoline and time
 point lack replicates. There are large differences in number of reads and in merging

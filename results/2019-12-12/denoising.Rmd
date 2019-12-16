@@ -1,0 +1,60 @@
+---
+title: "Denoising the complete data set with dada2"
+author: "Ignasi"
+date: "12/12/2019"
+output: html_document
+---
+
+# Set up
+I try to specify here all variables that depend on the current data or system. Subsequent
+runs should only have to update this section to be generate the report in a diferent system
+or with different data. I also load libraries.
+
+```{r setup}
+library(dada2)
+library(reactable)
+DATADIR <- c('../../data/RUNGEN52_2019/joined', '../../data/RUNGEN66/joined')  # It works with any number of dirs!
+FastqPattern <- '.extendedFrags.fastq.gz'  # To distinguish input fastq files. Must be common to all dirs.
+THREADS <- 60  # for multithreading, number of cores.
+```
+
+# Learning (from) errors
+
+```{r sampleNames, cache=TRUE}
+joined <- sort(list.files(DATADIR, pattern = FastqPattern, full.names = TRUE))
+
+# In dada2's tutorial, I see this use of sapply, that I had not seen before. Interesting:
+sample.names <- sapply(strsplit(joined, '/|.extendedFrags'), # this creates a list of lists,
+                       '[',                                  # that's the extract-or-replace-parts-of-an-object function,
+                       6)                                    # that's the argument to that function.
+names(joined) <- sample.names   # They are in the same order.
+sample.names
+```
+
+It turns out that merged reads, despite having been cleaned and merged, might contain Ns, which is not supported by
+the error learning algorithm. I need to filter again, carful not to trim nor remove anything other than N-containing
+reads. It will create new fastq.gz files, unfortunately. Note that I'm including several control samples in this analysis.
+
+```{r filtering, cache=TRUE, warning=FALSE}
+filtFiles <- file.path('./filtered', paste0(sample.names, '.fastq.gz'))
+filtOut <- filterAndTrim(joined, filtFiles, truncQ = 0, multithread = THREADS)
+reactable(filtOut)
+
+errors <- learnErrors(filtFiles, multithread = THREADS, randomize=TRUE)
+
+plotErrors(errors, nominalQ = TRUE)
+```
+
+
+# De-noising and removing chimeras.
+```{r dada, cache=TRUE, cache.lazy=FALSE}
+denoised <- dada(filtFiles, errors, pool = TRUE, multithread = THREADS)
+```
+
+```{r table, cache=TRUE, cache.lazy=FALSE}
+length(denoised$denoised)
+SeqTab <- makeSequenceTable(denoised)
+SeqTabNoChim <- removeBimeraDenovo(SeqTab, method = 'per-sample')
+table(nchar(getSequences(SeqTabNoChim)))  # to inspect length distribution.
+```
+

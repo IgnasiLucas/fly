@@ -65,6 +65,8 @@ done
 
 # Again, the pattern is very different, suggesting different error patterns, and different
 # cleaning biases between batches.
+#
+# The denoising analysis takes about 20 hours in Thermomix.
 
 if [ ! -e denoising.html ]; then
    R --save -q -e "rmarkdown::render('denoising.Rmd', output_file='denoising.html')"

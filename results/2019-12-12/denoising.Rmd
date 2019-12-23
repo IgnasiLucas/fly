@@ -8,19 +8,30 @@ output: html_document
 # Set up
 I try to specify here all variables that depend on the current data or system. Subsequent
 runs should only have to update this section to be generate the report in a diferent system
-or with different data. I also load libraries.
+or with different data. I also load libraries. The `reactable` library is not available in
+the `r` channel of conda at the moment. So, I install it if necessray:
 
 ```{r setup}
 library(dada2)
+if(!require(reactable)) {
+  install.packages('reactable', repos = 'https://cran.rediris.es/', dependencies = TRUE)
+}
 library(reactable)
+library(tidyr)
+library(ggplot2)
+library(plyr)
+
 DATADIR <- c('../../data/RUNGEN52_2019/joined', '../../data/RUNGEN66/joined')  # It works with any number of dirs!
-FastqPattern <- '.extendedFrags.fastq.gz'  # To distinguish input fastq files. Must be common to all dirs.
+FastqPattern <- '^[EL].*extendedFrags.fastq.gz'  # To distinguish input fastq files. Must be common to all dirs.
 THREADS <- 60  # for multithreading, number of cores.
 ```
 
+Below, I will have to assume that there are only two data directories, corresponding to the two
+sequencing batches.
+
 # Learning (from) errors
 
-```{r sampleNames, cache=TRUE}
+```{r sampleNames}
 joined <- sort(list.files(DATADIR, pattern = FastqPattern, full.names = TRUE))
 
 # In dada2's tutorial, I see this use of sapply, that I had not seen before. Interesting:
@@ -31,30 +42,91 @@ names(joined) <- sample.names   # They are in the same order.
 sample.names
 ```
 
-It turns out that merged reads, despite having been cleaned and merged, might contain Ns, which is not supported by
-the error learning algorithm. I need to filter again, carful not to trim nor remove anything other than N-containing
-reads. It will create new fastq.gz files, unfortunately. Note that I'm including several control samples in this analysis.
+The error-learning and dada algorithms do not support ambiguous `N` bases. I have checked (see `README.sh`) that the first
+and the third cycles of the second sequencing run produced a lot of Ns in reverse reads. I must trim the last 3 bases
+of the joined reads and then remove reads with Ns. It will create new fastq.gz files, unfortunately. Below I trim all
+reads, even those from the first batch, which do not have Ns in those last three positions. This way I remove variation
+only visible in the samples from the first batch. But make the identification of amplicon variants more consistent among
+samples. Otherwise, I could have used `collapseNoMismatch()` to count as equal variants that only differ in the length at
+the edges.
 
 ```{r filtering, cache=TRUE, warning=FALSE}
 filtFiles <- file.path('./filtered', paste0(sample.names, '.fastq.gz'))
-filtOut <- filterAndTrim(joined, filtFiles, truncQ = 0, multithread = THREADS)
+filtOut <- filterAndTrim(joined, filtFiles, truncQ = 0, trimRight = 3, multithread = THREADS)
 reactable(filtOut)
-
 errors <- learnErrors(filtFiles, multithread = THREADS, randomize=TRUE)
-
 plotErrors(errors, nominalQ = TRUE)
 ```
 
 
 # De-noising and removing chimeras.
+
+`dada` produces a *list* of `dada-class` objects: one per sample. I run it in its own chunk, because
+it is the longest step. That way, I will only run it again if I change either its input or the
+code in that chunk. All subsequent code can be edited without triggering the update of the dada results.
+Note the `cache.lazy=FALSE` option. It is necessray to unset the lazy load of cache results, which
+would otherwise fail to load large vectors.
+
 ```{r dada, cache=TRUE, cache.lazy=FALSE}
 denoised <- dada(filtFiles, errors, pool = TRUE, multithread = THREADS)
 ```
 
 ```{r table, cache=TRUE, cache.lazy=FALSE}
-length(denoised$denoised)
 SeqTab <- makeSequenceTable(denoised)
 SeqTabNoChim <- removeBimeraDenovo(SeqTab, method = 'per-sample')
-table(nchar(getSequences(SeqTabNoChim)))  # to inspect length distribution.
 ```
 
+# Summary
+Before assigning taxonomy, it may be a good time to summarize the results obtained this far.
+
+```{r plot1}
+plot(table(nchar(getSequences(SeqTabNoChim))), xlab='Length (bases)', ylab='Num. ASV')
+```
+
+```{r plot2, fig.width=12}
+## Rows in filtOut correspond to those in joined, which are named by sample.names. No need to extract the names again:
+# sample.names <- sapply(strsplit(rownames(filtOut), ".", fixed=TRUE), '[', 1)
+m <- regexpr('[0-9]+', sample.names)
+readNumber <- data.frame(sample = sample.names,
+                         age = factor(NA, levels=c('Early','Late')),
+                         isoline = factor(as.numeric(regmatches(sample.names, m))),
+                         seqBatch = factor(NA, levels=c(1,2)),
+                         excluded = filtOut[,1] - filtOut[,2],
+                         notDenoised = filtOut[,2] - rowSums(SeqTab),
+                         chimeras = rowSums(SeqTab) - rowSums(SeqTabNoChim),
+                         trusted = rowSums(SeqTabNoChim))
+readNumber$age[grep('^E', readNumber$sample)] <- 'Early'
+readNumber$age[grep('^L', readNumber$sample)] <- 'Late'
+FirstBatchSamples <- sapply(strsplit(list.files(DATADIR[1], pattern = '^[EL].*extendedFrags.fastq.gz'),
+                                     '.', fixed = TRUE),
+                            '[', 1)
+readNumber$seqBatch[readNumber$sample %in% FirstBatchSamples] <- 1
+readNumber$seqBatch[!(readNumber$sample %in% FirstBatchSamples)] <- 2
+LongReadNumber <- pivot_longer(readNumber, cols = c('excluded','notDenoised','chimeras','trusted'),
+                               names_to = 'ReadFate', values_to = 'ReadNumber')
+ggplot(LongReadNumber, mapping=aes(x=isoline, y=ReadNumber, fill=ReadFate)) + geom_col() + facet_wrap(~age) +
+  ggtitle('Total number of reads per isoline')
+```
+
+Isolines from 6 to 24 were sequenced in the first batch, and isolines from 25 to 39, in the second. Well,
+isolines 22 and 23 had also one additional sample each sequenced in the second sequencing batch. In any
+case, it is clear that the second batch of libraries were less homogeneous, resulting in large sequencing
+depth variance among isolines. It is unfortunate that two of the four late samples from isoline 29 received
+an excessive amount of sequencing effort, while other isolines received too little.
+
+```{r heatmap, fig.width=12, warning=FALSE}
+FeatDF <- as.data.frame(t(SeqTabNoChim))
+FeatDF$feature <- factor(rownames(FeatDF), levels = rownames(FeatDF), ordered = TRUE) # this adds a column.
+rownames(FeatDF) <- NULL
+LongFeat <- pivot_longer(FeatDF, cols = 1:(length(FeatDF)-1), names_to = c('Age', 'Isoline', 'Batch'),
+                         names_pattern = "([LE])([0-9]+)([A-Z]+)", values_to = 'Abundance')
+LongFeat$Isoline <- factor(as.numeric(LongFeat$Isoline),
+                           levels = sort(as.numeric(unique(LongFeat$Isoline))),
+                           ordered = TRUE)
+SummFeat <- ddply(LongFeat, .variables = c('feature', 'Age', 'Isoline'), summarize,
+                  TotalAbundance = sum(Abundance))
+ggplot(data = SummFeat, mapping = aes(x = feature, y = Isoline, fill = TotalAbundance)) +
+  geom_tile() + facet_wrap(~Age) +
+  scale_fill_gradientn(trans='log', colors=terrain.colors(10), breaks=c(5,50,500,5000)) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+```

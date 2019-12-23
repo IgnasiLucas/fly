@@ -8,9 +8,10 @@ life cycle. We sequenced 16S rRNA gene amplicons and we are analyzing them with 
 
 ## 2019-12-12
 I run dada2 on the whole dataset, pooling samples before calling the unique variants.
-It took around 20 hours. Unfortunately, I had to remove reads that included Ns. The
-first sequencing batch was hardly affected. But we lost about 50% of reads from the
-second batch, which is inadmissible.
+It took around 20 hours. Unfortunately, I had to trim reads and remove those that still
+included Ns. The second sequencing batch produced a much more variable depth among
+samples; isolines 27 and 35 are under-sequenced early in life, while isoline 29 is
+badly over-sequenced late in life. See the report [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2019-12-12/denoising.html).
 
 ## 2019-12-11
 The second batch of sequences arrived. Three of the 28 combinations of isoline and time

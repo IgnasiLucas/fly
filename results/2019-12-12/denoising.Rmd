@@ -8,18 +8,15 @@ output: html_document
 # Set up
 I try to specify here all variables that depend on the current data or system. Subsequent
 runs should only have to update this section to be generate the report in a diferent system
-or with different data. I also load libraries. The `reactable` library is not available in
-the `r` channel of conda at the moment. So, I install it if necessray:
+or with different data. I also load libraries.
 
-```{r setup}
+```{r setup, message=FALSE}
 library(dada2)
-if(!require(reactable)) {
-  install.packages('reactable', repos = 'https://cran.rediris.es/', dependencies = TRUE)
-}
 library(reactable)
 library(tidyr)
 library(ggplot2)
 library(plyr)
+library(DECIPHER)
 
 DATADIR <- c('../../data/RUNGEN52_2019/joined', '../../data/RUNGEN66/joined')  # It works with any number of dirs!
 FastqPattern <- '^[EL].*extendedFrags.fastq.gz'  # To distinguish input fastq files. Must be common to all dirs.
@@ -81,6 +78,18 @@ Before assigning taxonomy, it may be a good time to summarize the results obtain
 
 ```{r plot1}
 plot(table(nchar(getSequences(SeqTabNoChim))), xlab='Length (bases)', ylab='Num. ASV')
+```
+
+The dada2 tutorial recommends to check the length distribution and remove unexpectedly short
+sequences. They could be a result of inspecific binding of primers. But where to cut? I think
+an alignment can help decide what are valid, homologous amplicons and what not.
+
+```{r alignment, cache=TRUE}
+# Sequences are in DNA space. Turning them into RNA will afford an alignment that
+# takes RNA secondary structure into account.
+seqs <- RNAStringSet(DNAStringSet(colnames(SeqTabNoChim)))
+alignment <- AlignSeqs(seqs, normPower=0)  # normPower=0 prevents penalization of incomplete
+                                           #   columns produced by abundant shorter sequences.
 ```
 
 ```{r plot2, fig.width=12}

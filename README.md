@@ -2,9 +2,30 @@
 
 This is a collaboration with Pau Carazo and Zahida Sultanova. We are comparing the gut
 microbiome of several Drosophila melanogaster isolines, at two time points in their
-life cycle. We sequenced 16S rRNA gene amplicons and we are analyzing them with qiime2.
+life cycle. We sequenced 16S rRNA gene amplicons and we are analyzing them with dada2.
 
 ------------------------------------------------------------------------------------
+
+## 2020-02-11
+I use dada2 to assign taxonomy to the amplicon sequence variants. Among 2892 sequences,
+only 16 are annotated to the species level. But 2764 (96%) are annotated to the genus,
+which is quite good. There are 24 eukaryotic sequences, the annotation of which failed,
+probably because of the database not being appropriate. The rest are bacteria. This is
+The distribution of bacterial phyla (not considering abundances, but just number of variants):
+
+- Proteobacteria:        2303
+- Firmicutes:             382
+- Actinobacteria:          92
+- Bacteroidetes:           44
+- Cyanobacteria:           30
+- Verrucomicrobia:          4
+- Deinococcus-Thermus:      3
+- Fusobacteria:             3
+- Acidobacteria:            2
+- Planctomycetes:           2
+- Chloroflexi:              1
+- Gemmatimonadetes:         1
+- Patescibacteria:          1
 
 ## 2019-12-12
 I run dada2 on the whole dataset, pooling samples before calling the unique variants.

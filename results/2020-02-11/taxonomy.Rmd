@@ -3,6 +3,7 @@ title: "Taxonomy attribution"
 author: "J. Ignacio Lucas Lledó"
 date: "11/01/2020"
 output: html_document
+bibliography: taxonomy.bib
 params:
   TABSEQDATA: '../2019-12-12/denoising.RData'
   SILVA_TRAINING: '../../data/silva_nr_v132_train_set.fa.gz'
@@ -10,22 +11,86 @@ params:
   NUM_THREADS: 12
 ---
 
-```{r setup}
+```{r setup, message=FALSE}
 library(dada2)
-library(RcppParallel)
+library(RcppParallel)   # this is to set the number or threads.
 TABSEQDATA     <- params$TABSEQDATA
 SILVA_TRAINING <- params$SILVA_TRAINING
 SILVA_SPECIES  <- params$SILVA_SPECIES
 NUM_THREADS    <- as.numeric(params$NUM_THREADS)
 ```
 
-```{r taxa}
+# Taxonomy attribution
+
+This step takes almost an hour. I use 'cache=TRUE' to save the partial result and speed
+up subsequent runs if the chunk has not been modified. I am using the default `minBoot=50`,
+and not asking for the bootstrap values. This is an implementation of the RDP Naive
+Bayesian Classifier algorithm described in [@Wang2007], with kmer size 8 and 100 bootstrap
+replicates. I am using the Silva taxonomic databases [@Callahan2018]. We need to cite these
+references.
+
+```{r taxa, cache=TRUE}
 load(TABSEQDATA)
 setThreadOptions(numThreads = NUM_THREADS)
 taxa <- assignTaxonomy(SeqTabNoChim, SILVA_TRAINING, multithread=TRUE)
 taxa <- addSpecies(taxa, SILVA_SPECIES)
 dim(taxa)
 ```
+
+# Summary of results
+The `assignTaxonomy()` and `addSpecies()` functions produce a matrix of characters, with these
+columns: `r paste(colnames(taxa), collapse=', ')`. The row names are the sequences themselves.
+The first question I have is how successful the taxonomy attribution was. In the matrix, an
+undetermined taxonomic level is an `NA` value. I just need to count `NA` values to know the
+taxonomic level at which a sequence got annotated: 0 means the species is known; 1, the genus...
+and 7, not even the kingdom (*nothing* is known).
+
+```{r countNA}
+success <- table(rowSums(is.na(taxa)))
+row.names(success) <- c(rev(colnames(taxa)), 'Nothing')
+success
+```
+
+So, most sequences got a genus assigned; only 16, the species, and so on. Maybe I can blast the
+least known sequences manually to see what they are. What are the 2 sequences without a Kingdom
+assigned? Are they Martian?
+
+```{r Mars}
+query <- row.names(taxa)[is.na(taxa[,'Kingdom'])]
+cat(paste(c('>unknown1', '>unknown2'), query, sep='\n', collapse='\n'))
+```
+
+Both are sequences from the nuclear *Drosophila melanogaster* genome, amplified because of
+inspecific hybridization of the primers. I should remove them from the `SeqTabNoChim` matrix
+of abundances.
+
+```{r remove}
+SeqTabNoChim <- SeqTabNoChim[, !(colnames(SeqTabNoChim) %in% query)]
+dim(SeqTabNoChim)
+```
+
+What about the 23 sequences without a Phylum? Let's blast them as well, why not?
+
+```{r noPhylum}
+query <- row.names(taxa)[is.na(taxa[,'Phylum']) & !(is.na(taxa[,'Kingdom']))]
+table(taxa[query,'Kingdom'])
+```
+These are eukaryotic sequences, probably not well represented in the reference dataset.
+Are all eukaryotes in the microbiome so poorly annotated?
+
+```{r kingdoms}
+table(taxa[,'Kingdom'])
+```
+Well, there is only one more eukaryotic sequence, which must have been annotated further. Which one?
+
+```{r eukaryota}
+taxa[row.names(taxa)[taxa[,'Kingdom'] == 'Eukaryota' & !(is.na(taxa[,'Phylum']))],]
+```
+
+So, a few eukaryotes are present, but poorly annotated. 24 sequences could easily be annotated by
+hand. But that's not very good practice for reproducibility...
+
+# References
 
 ```{r save}
 save(taxa, file='taxonomy.RData')

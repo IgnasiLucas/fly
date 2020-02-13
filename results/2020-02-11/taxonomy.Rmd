@@ -1,0 +1,33 @@
+---
+title: "Taxonomy attribution"
+author: "J. Ignacio Lucas Lledó"
+date: "11/01/2020"
+output: html_document
+params:
+  TABSEQDATA: '../2019-12-12/denoising.RData'
+  SILVA_TRAINING: '../../data/silva_nr_v132_train_set.fa.gz'
+  SILVA_SPECIES: '../../data/silva_species_assignment_v132.fa.gz'
+  NUM_THREADS: 12
+---
+
+```{r setup}
+library(dada2)
+library(RcppParallel)
+TABSEQDATA     <- params$TABSEQDATA
+SILVA_TRAINING <- params$SILVA_TRAINING
+SILVA_SPECIES  <- params$SILVA_SPECIES
+NUM_THREADS    <- as.numeric(params$NUM_THREADS)
+```
+
+```{r taxa}
+load(TABSEQDATA)
+setThreadOptions(numThreads = NUM_THREADS)
+taxa <- assignTaxonomy(SeqTabNoChim, SILVA_TRAINING, multithread=TRUE)
+taxa <- addSpecies(taxa, SILVA_SPECIES)
+dim(taxa)
+```
+
+```{r save}
+save(taxa, file='taxonomy.RData')
+sessionInfo()
+```

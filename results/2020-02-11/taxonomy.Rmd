@@ -69,30 +69,56 @@ SeqTabNoChim <- SeqTabNoChim[, !(colnames(SeqTabNoChim) %in% query)]
 dim(SeqTabNoChim)
 ```
 
-What about the 23 sequences without a Phylum? Let's blast them as well, why not?
+What about the 23 sequences without a Phylum?
 
 ```{r noPhylum}
 query <- row.names(taxa)[is.na(taxa[,'Phylum']) & !(is.na(taxa[,'Kingdom']))]
 table(taxa[query,'Kingdom'])
 ```
-These are eukaryotic sequences, probably not well represented in the reference dataset.
-Are all eukaryotes in the microbiome so poorly annotated?
+These seem to be eukaryotic sequences. Are there more?
 
 ```{r kingdoms}
 table(taxa[,'Kingdom'])
 ```
-Well, there is only one more eukaryotic sequence, which must have been annotated further. Which one?
+Well, there is only one more presumably eukaryotic sequence, which must have been annotated further. Which one?
 
 ```{r eukaryota}
 taxa[row.names(taxa)[taxa[,'Kingdom'] == 'Eukaryota' & !(is.na(taxa[,'Phylum']))],]
 ```
 
-So, a few eukaryotes are present, but poorly annotated. 24 sequences could easily be annotated by
-hand. But that's not very good practice for reproducibility...
+Well, eukaryotes do not have 16S rRNA. So all these must be either wrong taxonomic attributions or inspecific
+amplifications from the *D. melanogaster* genome. I manually blasted the 24 "eukaryotic" sequences, and only
+two or three could be real, bacterial, 16S rRNA that have been missclassified. The rest are Drosophila's.
+I think the sensitive thing to do is to remove all them from `SeqTabNoChim`.
+
+```{r removeEukaryotes}
+wrongSeqs <- row.names(taxa[taxa[,'Kingdom'] %in% 'Eukaryota',])
+SeqTabNoChim <- SeqTabNoChim[, !(colnames(SeqTabNoChim) %in% wrongSeqs)]
+```
+
+# Reformating of table of abundances
+The matrix `SeqTabNoChim` is now `r dim(SeqTabNoChim)[1]` rows and `r dim(SeqTabNoChim)[2]` columns.
+Row names are the names of the fastq files from each sample, like: `r paste(head(row.names(SeqTabNoChim)), collapse=', ')`.
+And column names are the sequences. I want a very long data frame with these columns:
+
+- Time: a factor with levels 'early' and 'late'.
+- Isoline.
+- Replicate: A, B, C...
+- Phylum.
+- Class.
+- Order.
+- Family.
+- Genus.
+- Species.
+- Count: Number of reads of that species observed in that sample.
+- Proportion: Fraction of reads in the sample corresponding to this species.
+- Sequence: not sure if I should include it.
+
+
 
 # References
 
 ```{r save}
-save(taxa, file='taxonomy.RData')
+save(c(taxa, SeqTabNoChim), file='taxonomy.RData')
 sessionInfo()
 ```

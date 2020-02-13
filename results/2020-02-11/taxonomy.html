@@ -185,24 +185,60 @@ summary {
 </div>
 
 
-<pre class="r"><code>library(dada2)</code></pre>
-<pre><code>## Loading required package: Rcpp</code></pre>
-<pre class="r"><code>library(RcppParallel)</code></pre>
-<pre><code>## 
-## Attaching package: 'RcppParallel'</code></pre>
-<pre><code>## The following object is masked from 'package:Rcpp':
-## 
-##     LdFlags</code></pre>
-<pre class="r"><code>TABSEQDATA     &lt;- params$TABSEQDATA
+<pre class="r"><code>library(dada2)
+library(RcppParallel)   # this is to set the number or threads.
+TABSEQDATA     &lt;- params$TABSEQDATA
 SILVA_TRAINING &lt;- params$SILVA_TRAINING
 SILVA_SPECIES  &lt;- params$SILVA_SPECIES
 NUM_THREADS    &lt;- as.numeric(params$NUM_THREADS)</code></pre>
+<div id="taxonomy-attribution" class="section level1">
+<h1>Taxonomy attribution</h1>
+<p>This step takes almost an hour. I use ‘cache=TRUE’ to save the partial result and speed up subsequent runs if the chunk has not been modified. I am using the default <code>minBoot=50</code>, and not asking for the bootstrap values. This is an implementation of the RDP Naive Bayesian Classifier algorithm described in <span class="citation">(Wang et al. 2007)</span>, with kmer size 8 and 100 bootstrap replicates. I am using the Silva taxonomic databases <span class="citation">(Callahan 2018)</span>. We need to cite these references.</p>
 <pre class="r"><code>load(TABSEQDATA)
 setThreadOptions(numThreads = NUM_THREADS)
 taxa &lt;- assignTaxonomy(SeqTabNoChim, SILVA_TRAINING, multithread=TRUE)
 taxa &lt;- addSpecies(taxa, SILVA_SPECIES)
 dim(taxa)</code></pre>
 <pre><code>## [1] 2894    7</code></pre>
+</div>
+<div id="summary-of-results" class="section level1">
+<h1>Summary of results</h1>
+<p>The <code>assignTaxonomy()</code> and <code>addSpecies()</code> functions produce a matrix of characters, with these columns: Kingdom, Phylum, Class, Order, Family, Genus, Species. The row names are the sequences themselves. The first question I have is how successful the taxonomy attribution was. In the matrix, an undetermined taxonomic level is an <code>NA</code> value. I just need to count <code>NA</code> values to know the taxonomic level at which a sequence got annotated: 0 means the species is known; 1, the genus… and 7, not even the kingdom (<em>nothing</em> is known).</p>
+<pre class="r"><code>success &lt;- table(rowSums(is.na(taxa)))
+row.names(success) &lt;- c(rev(colnames(taxa)), 'Nothing')
+success</code></pre>
+<pre><code>## 
+## Species   Genus  Family   Order   Class  Phylum Kingdom Nothing 
+##      16    2768      45      36       2       1      24       2</code></pre>
+<p>So, most sequences got a genus assigned; only 16, the species, and so on. Maybe I can blast the least known sequences manually to see what they are. What are the 2 sequences without a Kingdom assigned? Are they Martian?</p>
+<pre class="r"><code>query &lt;- row.names(taxa)[is.na(taxa[,'Kingdom'])]
+cat(paste(c('&gt;unknown1', '&gt;unknown2'), query, sep='\n', collapse='\n'))</code></pre>
+<pre><code>## &gt;unknown1
+## CCTACGGGCGGCATGTACGGATTATGAGCGGAGTCACCCGGTGCTTCAGCTGTCTTAACAGCGGATTAACATTTTATATATCGATGCTAATTGAACTGAACTGTATTCTTTCTTTCGCTCTTGTAATTTTGCGGTCATAGCGATCAGACGTGATTTTTGTATATGAAGAAATAAATGAAGTTAAATAGTGTATATATGATTCTTATTTGCGAACCCCATTACAATGATGTCAAAGCAGTGAGGCATCACAACTATTCACAAATGTTATTATTATAATTTGTATTTGTATTACATGTTAATAATATAAAACTTCGGTTCTTCTGTCAAATTTTATATACGGAAATTGGATCCGGAACTATATATGTATATATGTACCTATGTACAAAAAAACATTGTTATACTCCAAAACAAGAGAGAATGCTATAATCGAGTTCCCCGACTATCAGATACCCGAGTA
+## &gt;unknown2
+## CCTACGGGGGGCAGCGGCGAAGGGTGTTTTGATGATGGGAAGCCATCCCACACTGTGGCGAAATAAGTGGAAATTAGTCATTGGGTTGATGCTCTTTTCAAACGAAAACTCTGATACATTTAAAGTTATCAAATTATCAGGAAAAATGTGTGTTTCATCTGTGCTTATAATGGCTTAATAGTAATTCGAATCATTTTTTGAAAATATTTTAGAAATAATTGCGATTTCAGATAATGTACTTCATCATCACAGAAACATAAGAGTTCAACTTCTGTGAAGCAATATATAATATTGATTACATCCGGTGCAAAGTTGTTACTCTTGATATTCAAAAGATATTTCAATTATGATATTAAAATATCCCTAAACATCCTTGTTTTTCTCCGTGCAACTCATGTGGTTGAAAGTAAAAGTTGTTCGCTCCATTCACTCACAGCGTTAGTTAGATTAGATACCCCGGTA</code></pre>
+<p>Both are sequences from the nuclear <em>Drosophila melanogaster</em> genome, amplified because of inspecific hybridization of the primers. I should remove them from the <code>SeqTabNoChim</code> matrix of abundances.</p>
+<pre class="r"><code>SeqTabNoChim &lt;- SeqTabNoChim[, !(colnames(SeqTabNoChim) %in% query)]
+dim(SeqTabNoChim)</code></pre>
+<pre><code>## [1]  177 2892</code></pre>
+<p>What about the 23 sequences without a Phylum? Let’s blast them as well, why not?</p>
+<pre class="r"><code>query &lt;- row.names(taxa)[is.na(taxa[,'Phylum']) &amp; !(is.na(taxa[,'Kingdom']))]
+table(taxa[query,'Kingdom'])</code></pre>
+<pre><code>## 
+## Eukaryota 
+##        24</code></pre>
+<p>These are eukaryotic sequences, probably not well represented in the reference dataset. Are all eukaryotes in the microbiome so poorly annotated?</p>
+<pre class="r"><code>table(taxa[,'Kingdom'])</code></pre>
+<pre><code>## 
+##  Bacteria Eukaryota 
+##      2868        24</code></pre>
+<p>Well, there is only one more eukaryotic sequence, which must have been annotated further. Which one?</p>
+<pre class="r"><code>taxa[row.names(taxa)[taxa[,'Kingdom'] == 'Eukaryota' &amp; !(is.na(taxa[,'Phylum']))],]</code></pre>
+<pre><code>##      Kingdom Phylum Class Order Family Genus Species</code></pre>
+<p>So, a few eukaryotes are present, but poorly annotated. 24 sequences could easily be annotated by hand. But that’s not very good practice for reproducibility…</p>
+</div>
+<div id="references" class="section level1">
+<h1>References</h1>
 <pre class="r"><code>save(taxa, file='taxonomy.RData')
 sessionInfo()</code></pre>
 <pre><code>## R version 3.6.2 (2019-12-12)
@@ -228,37 +264,46 @@ sessionInfo()</code></pre>
 ## [1] RcppParallel_4.4.4 dada2_1.14.0       Rcpp_1.0.3        
 ## 
 ## loaded via a namespace (and not attached):
-##  [1] SummarizedExperiment_1.16.1 tidyselect_0.2.5           
-##  [3] xfun_0.12                   reshape2_1.4.3             
-##  [5] purrr_0.3.3                 lattice_0.20-38            
-##  [7] colorspace_1.4-1            htmltools_0.4.0            
-##  [9] stats4_3.6.2                yaml_2.2.1                 
-## [11] rlang_0.4.2                 pillar_1.4.3               
-## [13] glue_1.3.1                  BiocParallel_1.20.1        
-## [15] RColorBrewer_1.1-2          BiocGenerics_0.32.0        
-## [17] plyr_1.8.5                  jpeg_0.1-8.1               
-## [19] matrixStats_0.55.0          GenomeInfoDbData_1.2.2     
-## [21] lifecycle_0.1.0             stringr_1.4.0              
-## [23] zlibbioc_1.32.0             Biostrings_2.54.0          
-## [25] munsell_0.5.0               gtable_0.3.0               
-## [27] hwriter_1.3.2               evaluate_0.14              
-## [29] latticeExtra_0.6-29         Biobase_2.46.0             
-## [31] knitr_1.27                  IRanges_2.20.2             
-## [33] GenomeInfoDb_1.22.0         parallel_3.6.2             
-## [35] scales_1.1.0                DelayedArray_0.12.2        
-## [37] S4Vectors_0.24.3            XVector_0.26.0             
-## [39] ShortRead_1.44.3            Rsamtools_2.2.1            
-## [41] png_0.1-7                   ggplot2_3.2.1              
-## [43] digest_0.6.23               stringi_1.4.5              
-## [45] dplyr_0.8.3                 GenomicRanges_1.38.0       
-## [47] grid_3.6.2                  tools_3.6.2                
-## [49] bitops_1.0-6                magrittr_1.5               
-## [51] lazyeval_0.2.2              RCurl_1.98-1.1             
-## [53] tibble_2.1.3                crayon_1.3.4               
-## [55] pkgconfig_2.0.3             Matrix_1.2-18              
-## [57] assertthat_0.2.1            rmarkdown_2.1              
-## [59] R6_2.4.1                    GenomicAlignments_1.22.1   
-## [61] compiler_3.6.2</code></pre>
+##  [1] lattice_0.20-38             png_0.1-7                  
+##  [3] Rsamtools_2.2.1             Biostrings_2.54.0          
+##  [5] assertthat_0.2.1            digest_0.6.23              
+##  [7] R6_2.4.1                    GenomeInfoDb_1.22.0        
+##  [9] plyr_1.8.5                  ShortRead_1.44.3           
+## [11] stats4_3.6.2                evaluate_0.14              
+## [13] ggplot2_3.2.1               pillar_1.4.3               
+## [15] zlibbioc_1.32.0             rlang_0.4.2                
+## [17] lazyeval_0.2.2              S4Vectors_0.24.3           
+## [19] Matrix_1.2-18               rmarkdown_2.1              
+## [21] BiocParallel_1.20.1         stringr_1.4.0              
+## [23] RCurl_1.98-1.1              munsell_0.5.0              
+## [25] DelayedArray_0.12.2         compiler_3.6.2             
+## [27] xfun_0.12                   pkgconfig_2.0.3            
+## [29] BiocGenerics_0.32.0         htmltools_0.4.0            
+## [31] tidyselect_0.2.5            SummarizedExperiment_1.16.1
+## [33] tibble_2.1.3                GenomeInfoDbData_1.2.2     
+## [35] IRanges_2.20.2              codetools_0.2-16           
+## [37] matrixStats_0.55.0          crayon_1.3.4               
+## [39] dplyr_0.8.3                 GenomicAlignments_1.22.1   
+## [41] bitops_1.0-6                grid_3.6.2                 
+## [43] gtable_0.3.0                lifecycle_0.1.0            
+## [45] magrittr_1.5                scales_1.1.0               
+## [47] stringi_1.4.5               XVector_0.26.0             
+## [49] hwriter_1.3.2               reshape2_1.4.3             
+## [51] latticeExtra_0.6-29         RColorBrewer_1.1-2         
+## [53] tools_3.6.2                 Biobase_2.46.0             
+## [55] glue_1.3.1                  purrr_0.3.3                
+## [57] jpeg_0.1-8.1                parallel_3.6.2             
+## [59] yaml_2.2.1                  colorspace_1.4-1           
+## [61] GenomicRanges_1.38.0        knitr_1.27</code></pre>
+<div id="refs" class="references">
+<div id="ref-Callahan2018">
+<p>Callahan, Benjamin. 2018. “Silva taxonomic training data formatted for DADA2 (Silva version 132).” Zenodo. doi:<a href="https://doi.org/10.5281/zenodo.1172783">10.5281/zenodo.1172783</a>.</p>
+</div>
+<div id="ref-Wang2007">
+<p>Wang, Qiong, George M. Garrity, James M. Tiedje, and James R. Cole. 2007. “Naïve Bayesian Classifier for Rapid Assignment of rRNA Sequences into the New Bacterial Taxonomy.” <em>Applied and Environmental Microbiology</em> 73 (16): 5261–7. doi:<a href="https://doi.org/10.1128/AEM.00062-07">10.1128/AEM.00062-07</a>.</p>
+</div>
+</div>
+</div>
 
 
 

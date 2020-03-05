@@ -14,6 +14,9 @@ params:
 ```{r setup, message=FALSE}
 library(dada2)
 library(RcppParallel)   # this is to set the number or threads.
+library(tidyr)
+library(stringr)
+library(plyr)
 TABSEQDATA     <- params$TABSEQDATA
 SILVA_TRAINING <- params$SILVA_TRAINING
 SILVA_SPECIES  <- params$SILVA_SPECIES
@@ -22,16 +25,19 @@ NUM_THREADS    <- as.numeric(params$NUM_THREADS)
 
 # Taxonomy attribution
 
-This step takes almost an hour. I use 'cache=TRUE' to save the partial result and speed
-up subsequent runs if the chunk has not been modified. I am using the default `minBoot=50`,
+This step takes almost an hour. I tried using 'cache=TRUE' to save the partial result and speed
+up subsequent runs if the chunk has not been modified. But it does not work well. I am using the default `minBoot=50`, 
 and not asking for the bootstrap values. This is an implementation of the RDP Naive
 Bayesian Classifier algorithm described in [@Wang2007], with kmer size 8 and 100 bootstrap
 replicates. I am using the Silva taxonomic databases [@Callahan2018]. We need to cite these
 references.
 
-```{r taxa, cache=TRUE}
+```{r loading}
 load(TABSEQDATA)
 setThreadOptions(numThreads = NUM_THREADS)
+```
+
+```{r taxa}
 taxa <- assignTaxonomy(SeqTabNoChim, SILVA_TRAINING, multithread=TRUE)
 taxa <- addSpecies(taxa, SILVA_SPECIES)
 dim(taxa)
@@ -47,7 +53,7 @@ and 7, not even the kingdom (*nothing* is known).
 
 ```{r countNA}
 success <- table(rowSums(is.na(taxa)))
-row.names(success) <- c(rev(colnames(taxa)), 'Nothing')
+names(success) <- c(rev(colnames(taxa)), 'Nothing')
 success
 ```
 
@@ -69,7 +75,7 @@ SeqTabNoChim <- SeqTabNoChim[, !(colnames(SeqTabNoChim) %in% query)]
 dim(SeqTabNoChim)
 ```
 
-What about the 23 sequences without a Phylum?
+What about the sequences without a Phylum?
 
 ```{r noPhylum}
 query <- row.names(taxa)[is.na(taxa[,'Phylum']) & !(is.na(taxa[,'Kingdom']))]
@@ -80,13 +86,8 @@ These seem to be eukaryotic sequences. Are there more?
 ```{r kingdoms}
 table(taxa[,'Kingdom'])
 ```
-Well, there is only one more presumably eukaryotic sequence, which must have been annotated further. Which one?
 
-```{r eukaryota}
-taxa[row.names(taxa)[taxa[,'Kingdom'] == 'Eukaryota' & !(is.na(taxa[,'Phylum']))],]
-```
-
-Well, eukaryotes do not have 16S rRNA. So all these must be either wrong taxonomic attributions or inspecific
+Eukaryotes do not have 16S rRNA. So all these must be either wrong taxonomic attributions or inspecific
 amplifications from the *D. melanogaster* genome. I manually blasted the 24 "eukaryotic" sequences, and only
 two or three could be real, bacterial, 16S rRNA that have been missclassified. The rest are Drosophila's.
 I think the sensitive thing to do is to remove all them from `SeqTabNoChim`.
@@ -114,11 +115,59 @@ And column names are the sequences. I want a very long data frame with these col
 - Proportion: Fraction of reads in the sample corresponding to this species.
 - Sequence: not sure if I should include it.
 
+```{r reformat}
+TA <- as.data.frame(SeqTabNoChim)
+TA$fastq <- row.names(TA)
+TA <- pivot_longer(TA, 1:(dim(TA)[2] - 1), names_to='sequence', values_to='abundance')
+TA$time <- factor('early', levels=c('early','late'), ordered=TRUE)
+TA[startsWith(TA$fastq, 'L'), 'time'] <- 'late'
+table(TA$time)
+TA$isoline <- str_extract(TA$fastq, "[[:digit:]]+")
+table(TA$isoline)
+TA$replicate <- gsub("([EL][[:digit:]]+|.fastq.gz)", "", TA$fastq)
+table(TA$replicate)
+TA$Phylum <- factor(taxa[TA$sequence, 'Phylum'], levels = unique(taxa[,'Phylum']))
+TA$Class  <- factor(taxa[TA$sequence, 'Class'],  levels = unique(taxa[,'Class']))
+TA$Order  <- factor(taxa[TA$sequence, 'Order'],  levels = unique(taxa[,'Order']))
+TA$Family <- factor(taxa[TA$sequence, 'Family'], levels = unique(taxa[,'Family']))
+TA$Genus  <- factor(taxa[TA$sequence, 'Genus'],  levels = unique(taxa[,'Genus']))
+TA$Species <- factor(taxa[TA$sequence, 'Species'], levels = unique(taxa[,'Species']))
+# Totals is the total number of sequence counts from a sample. 
+Totals <- rowSums(SeqTabNoChim)
+TA$total  <- Totals[TA$fastq]
+TA$proportion <- TA$abundance / TA$total
+```
 
+In data frame `TA` (for *taxonomy and abundance*), `total` is the total number of counts
+of all sequences in the same fastq file (or sample). Anf `proportion` is the proportion
+of those reads corresponding to a sequence. Next, I want to pool replicates of the same
+isoline and sampling time. Then, there are two ways to estimate the proportion of a sequence
+among the replicates. I can average the previously estimated proportions among replicates,
+or I can pool the sequence abundances and the totals (sequencing efforts) of all replicates
+and calculate the proportion again. The result would be the same if the average is weighted
+by totals, as it should be. The question is *what's the error of such an average proportion?*.
+We probably need a negative binomial model or similar. Time to check what people out there do
+and switch folders.
+
+```{r summarise, echo=FALSE, eval=FALSE}
+TA2 <- ddply(TA, .(sequence,time,isoline), summarize,
+             Phylum = Phylum[1],
+             Class = Class[1],
+             Order = Order[1],
+             Family = Family[1],
+             Genus = Genus[1],
+             Species = Species[1],
+             repliNum = length(replicate),
+             pooledCount = sum(abundance),
+             pooledTotal = sum(Total),
+             pooledProp = sum(abundance)/sum(Total),  # should be equal to meanProp
+             meanProp = mean(proportion),
+             sdProp = sd(proportion))
+```
 
 # References
 
 ```{r save}
-save(c(taxa, SeqTabNoChim), file='taxonomy.RData')
+save(taxa, SeqTabNoChim, TA, file='taxonomy.RData')
 sessionInfo()
 ```

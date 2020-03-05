@@ -21,7 +21,7 @@ SAMPLE2=(          E22C       E23A                 E25A E25B E25C E25D  E26A E26
          E38A E38B E38C E38D  E39A E39B E39C E39D       L23B                      L24C
          L25A L25B L25C L25D  L26A L26B L26C L26D  L27A L27B L27C       L28A L28B L28C L28D
          L29A L29B L29C L29D  L30A L30B L30C L30D  L31A L31B L31C L31D  L33A L33B L33C L33D
-         L35B L35C L35D       L36A L36B L36C L36D  L38A L38B L38C L38D  L39A L39B L39C L39D)
+              L35B L35C L35D  L36A L36B L36C L36D  L38A L38B L38C L38D  L39A L39B L39C L39D)
 
 # After a first run of dada2, I realize that in the second sequencing batch about 50% of joined
 # reads from any sample contain Ns, which are not admitted by the dada algorithm. It is unfortunate

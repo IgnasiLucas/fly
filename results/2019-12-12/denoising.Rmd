@@ -81,15 +81,16 @@ plot(table(nchar(getSequences(SeqTabNoChim))), xlab='Length (bases)', ylab='Num.
 ```
 
 The dada2 tutorial recommends to check the length distribution and remove unexpectedly short
-sequences. They could be a result of inspecific binding of primers. But where to cut? I think
-an alignment can help decide what are valid, homologous amplicons and what not.
+sequences. They could be a result of inspecific binding of primers. But where to cut? Preliminar
+alignments make it evident that many sequences must lack homology. I run some blasts manually
+with sequences of decreasing length. The first length of a sequence that retrieved a *Drosophila*
+hit was 432. Some sequences with intermediate length between the two most abundant lengths seem
+to come from the *Drosophila* genome. And most sequences longer than 463 are *Drosophila*'s.
 
-```{r alignment, cache=TRUE}
-# Sequences are in DNA space. Turning them into RNA will afford an alignment that
-# takes RNA secondary structure into account.
-seqs <- RNAStringSet(DNAStringSet(colnames(SeqTabNoChim)))
-alignment <- AlignSeqs(seqs, normPower=0)  # normPower=0 prevents penalization of incomplete
-                                           #   columns produced by abundant shorter sequences.
+```{r alignment, cache=TRUE, message=FALSE}
+SeqTabNoChim <- SeqTabNoChim[,nchar(colnames(SeqTabNoChim)) > 432 & nchar(colnames(SeqTabNoChim)) < 464]
+alignment <- AlignSeqs(RNAStringSet(DNAStringSet(colnames(SeqTabNoChim))))
+BrowseSeqs(alignment, htmlFile='alignment.html', openURL=FALSE)
 ```
 
 ```{r plot2, fig.width=12}
@@ -138,4 +139,9 @@ ggplot(data = SummFeat, mapping = aes(x = feature, y = Isoline, fill = TotalAbun
   geom_tile() + facet_wrap(~Age) +
   scale_fill_gradientn(trans='log', colors=terrain.colors(10), breaks=c(5,50,500,5000)) +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+```
+
+```{r sessionInfo}
+save(SeqTabNoChim, file='denoising.RData')
+sessionInfo()
 ```

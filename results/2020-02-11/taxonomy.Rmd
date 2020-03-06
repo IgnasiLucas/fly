@@ -160,14 +160,14 @@ TA2 <- ddply(TA, .(sequence,time,isoline), summarize,
              repliNum = length(replicate),
              pooledCount = sum(abundance),
              pooledTotal = sum(Total),
-             pooledProp = sum(abundance)/sum(Total),  # should be equal to meanProp
-             meanProp = mean(proportion),
+             pooledProp = sum(abundance)/sum(Total), # equal to meanProp?
+             meanProp = weighted.mean(proportion, abundance),
              sdProp = sd(proportion))
 ```
 
 # References
 
 ```{r save}
-save(taxa, SeqTabNoChim, TA, file='taxonomy.RData')
+save(taxa, SeqTabNoChim, file='taxonomy.RData')
 sessionInfo()
 ```

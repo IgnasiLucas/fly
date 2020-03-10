@@ -1,0 +1,275 @@
+---
+title: "Phyloseq analysis"
+author: "J. Ignacio Lucas Lledó"
+date: "27/2/2020"
+output: html_document
+params:
+  DATA: '../2020-02-11/taxonomy.RData'
+  RUN1: '../../data/RUNGEN52_2019/fastq'
+  RUN2: '../../data/RUNGEN66/fastq'
+bibliography:
+  phyloseq.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup2, message=FALSE}
+library(phyloseq)
+library(ggplot2)
+library(Biostrings)
+library(DECIPHER)
+library(phangorn)
+library(plyr)
+load(params$DATA)
+ls()
+```
+
+# Additional filtering
+Recall the `SeqTabNoChim` matrix of abundances has been filtered before: only
+sequence lengths in the range `r range(nchar(colnames(SeqTabNoChim)))` are
+present, and sequences of unknown or unreliable Phylum have been removed
+(though they are still present in `taxa`). Following [@Callahan2016],
+I take a look at *prevalence* (number of samples a taxon is observed at
+least once), and its relationship with total abundance.
+
+```{r prevalence}
+Prevalence <- data.frame(
+  prevalence = colSums(SeqTabNoChim > 0),   # taxa are columns
+  abundance  = colSums(SeqTabNoChim),
+  Phylum     = factor(taxa[colnames(SeqTabNoChim), 'Phylum']),
+  Order      = factor(taxa[colnames(SeqTabNoChim), 'Order'])
+)
+Proportions <- apply(SeqTabNoChim, 1, function(x) x/sum(x))
+dim(Proportions)
+table(colSums(Proportions))  # Just checking: taxa are in rows now.
+Prevalence$meanProp <- apply(Proportions, 1, mean) 
+ggplot(Prevalence, aes(x=meanProp, y=prevalence)) +
+  geom_point(size=0.5) + scale_x_log10() + facet_wrap(~Phylum)
+ggplot(Prevalence[Prevalence$Phylum=='Proteobacteria',], aes(x=meanProp, y=prevalence, color=Order)) +
+  geom_point() + scale_x_log10()
+```
+In the [preprocessing tutorial](https://joey711.github.io/phyloseq/preprocess.html)
+some filters are suggested that can be applied to a `phyloseq` object. Here,
+I filter sequences before creating the phyloseq object, because that way the
+alignment and phylogenetic tree reconstruction steps will be faster.
+
+[@Callahan2016] suggests to filter by prevalence. They remove taxa that are not
+present in at least 5% of samples. However, the [preprocessing tutorial](https://joey711.github.io/phyloseq/preprocess.html)
+suggests to filter by mean relative abundance, using $10^{-5}$ as the threshold.
+I think it is more reasonable to filter by relative abundance than by
+prevalence. I remove taxa because they don't contribute much to any sample's
+microbiome, not of their absence from a number of samples.
+
+```{r filter}
+filter <- Prevalence$meanProp >= 1.0e-05
+SeqTabClean <- SeqTabNoChim[,filter]
+dim(SeqTabClean)
+```
+
+Another way of filtering is to use the original counts. In the Phyloseq Preprocessing tutorial they suggest
+removing taxa that has not been counted at least 4 times in at least 20% of samples. In
+our data set that would leave `r sum(apply(SeqTabClean, 2, function(x){sum(x>3)}) > (0.2*177))`
+taxa. I will create such a reduced subset of the data later, after creating the
+phyloseq object.
+
+# Alignment and tree
+I had aligned them before, on `2019-12-12`. But for the
+sake of clarity, I align them here as well, in order to create a phylogenetic
+tree and include that information in the `phyloseq` object.
+
+The abundance table, `SeqTabClean`, uses the DNA sequence itself as names of
+columns. It is more convenient to use a shorter name, and to store the sequences
+in a separate object, indexed by the same names. See the [dada2 tutorial](https://benjjneb.github.io/dada2/tutorial.html).
+
+```{r renaming}
+dna <- DNAStringSet(colnames(SeqTabClean))
+names(dna) <- sprintf("ASV%04i", seq(dim(SeqTabClean)[2]))
+
+# Changing column names is delicate. I need to make sure I give columns
+# the exact same names their sequences have now in the 'dna' object. I could
+# use this:
+#    colnames(SeqTabNoChim) <- sprintf("ASV%04i", seq(dim(SeqTabNoChim)[2]))
+# Because the order of sequences is preserved in 'dna'. But to be safer
+# against typos, and more explicit, I use the 'match()' function:
+
+colnames(SeqTabClean) <- names(dna)[match(colnames(SeqTabClean), dna)]
+taxaClean <- taxa[as.character(dna),]
+row.names(taxaClean)  <- names(dna)[match(row.names(taxaClean), dna)]
+PropClean <- Proportions[as.character(dna),]
+row.names(PropClean)  <- names(dna)[match(row.names(PropClean), dna)]
+```
+
+Below, I use conditional execution as a *home made* substitute for the
+`cache=TRUE` option, which does not seem to work well sometimes.
+
+```{r alignment, message=FALSE}
+if (file.exists('alignment.RData')) {
+   load('alignment.RData')
+} else {
+   alignment <- AlignSeqs(RNAStringSet(dna))
+   BrowseSeqs(alignment, htmlFile='alignment.html', openURL=FALSE)
+   save(alignment, file='alignment.RData')
+   # Forces removal of tree upon update of alignment:
+   if (file.exists('fitGTR.RData')) file.remove('fitGTR.RData')
+}
+```
+
+Next few lines mostly copied from [@Callahan2016]. I suppose fitting the
+tree by maximum likelihood may take a while. This is one of the chunks where
+I would use the `cache=TRUE` option to prevent it from running if the
+results are saved (and neither the input nor the code changed since the
+time the results were saved). However, the chunk's cache does not seem
+to work properly. It may be an RStudio issue. I resort to save the results
+explicitly, and make the chunk's execution conditional on their absence.
+I will have to remove the results manually if I want them updated.
+
+```{r tree, message=FALSE}
+if (file.exists('fitGTR.RData')) {
+   load('fitGTR.RData')
+} else {
+   phang.align <- phyDat(as(DNAStringSet(alignment), "matrix"), type="DNA")
+   dm <- dist.ml(phang.align)
+   treeNJ <- NJ(dm) # Note, tip order != sequence order
+   fit = pml(treeNJ, data=phang.align)
+
+   fitGTR <- update(fit, k=4, inv=0.2)
+   fitGTR <- optim.pml(fitGTR, model="GTR", optInv=TRUE, optGamma=TRUE,
+                      rearrangement = "stochastic", control = pml.control(trace = 0))
+   detach("package:phangorn", unload=TRUE)   # Don't know why I do this.
+   save(fitGTR, file='fitGTR.RData')
+}
+```
+
+# Phyloseq object
+Now, I start using the `phyloseq` package [@McMurdie2013].
+Row names in the matrix of abundances `SeqTabClean` contains the fastq file names
+corresponding to each library, where the three variables identifying the samples are
+encoded, namely the sampling time (or fly *age*), the isoline, and the replicate.
+
+```{r data}
+SampleData <- data.frame(
+  age = factor(substr(rownames(SeqTabClean), 1, 1), levels=c('E','L'), labels=c('Early','Late')),
+  isoline = factor(stringr::str_extract(rownames(SeqTabClean), "[[:digit:]]+"),
+                   levels=as.character(c(6,10,11,12,14,15,17,19,20,22,23,24,25,26,27,28,29,30,31,33,35,36,38,39)),
+                   ordered=TRUE),
+  replicate = gsub("([EL][[:digit:]]+|.fastq.gz)", "", rownames(SeqTabClean)),
+  seqrun = factor(1, levels=c(1,2))
+)
+row.names(SampleData) <- rownames(SeqTabClean)
+run2 <- paste(substring(SampleData$age, 1, 1),
+              SampleData$isoline,
+              SampleData$replicate,
+              '_R1.fastq.gz', sep='') %in% dir(params$RUN2)
+SampleData[run2, 'seqrun'] <- 2
+
+ps <- phyloseq(otu_table(SeqTabClean, taxa_are_rows=FALSE), 
+               sample_data(SampleData), 
+               tax_table(taxaClean),
+               phy_tree(fitGTR$tree))
+ps <- merge_phyloseq(ps, dna)
+ps
+plot_richness(ps, x="isoline", measures=c("Shannon", "Simpson"), color="age", shape="seqrun")
+```
+
+To generate a `phyloseq` object with relative abundance (proportions),
+I prefer to create it *de novo* from the `PropClean` matrix created
+before, instead of using the `transform_sample_counts` function. The
+reason is that I want to use the original, true values of relative
+abundance, and not the proportions calculated on a subset of the
+original taxa.
+
+```{r distance, message=FALSE, warning=FALSE}
+ps.prop <- phyloseq(otu_table(PropClean, taxa_are_rows=TRUE),
+                    sample_data(SampleData),
+                    tax_table(taxaClean),
+                    phy_tree(fitGTR$tree))
+
+save(ps, ps.prop, file='ps.RData')
+
+ggplot(psmelt(ps.prop), aes(x=age, y=Abundance)) +
+  geom_violin() + facet_wrap(~Phylum) + scale_y_log10()
+
+ps.prot <- subset_taxa(ps.prop, Phylum %in% c("Proteobacteria"))
+ggplot(psmelt(ps.prot), aes(x=age, y=Abundance)) +
+  geom_violin() + facet_wrap(~Order) + scale_y_log10()
+
+ord.nmds.bray <- ordinate(ps.prop, method="NMDS", distance="bray", trymax=1000, trace=0)
+# The "trace=0" above supresses the long output.
+plot_ordination(ps.prop, ord.nmds.bray, color="age", title="Bray NMDS")
+```
+
+# Reduced dataset
+
+As mentioned before, a more aggressive filtering can be applied to
+remove taxa that have not been observed a minimum number of times (4)
+in a minimum number of samples (20%). I show the code below, but
+don't run it now. Previous runs suggest that reducing the dataset so
+much removes the main differences between early and late communities.
+
+```{r CV, eval=FALSE}
+ps.clean2 <- filter_taxa(ps, function(x) sum(x > 3) > (0.2*length(x)), TRUE)
+total <- median(sample_sums(ps.clean2))
+standf <- function(x, t=total) round(t * (x / sum(x)))
+ps.clean2 <- transform_sample_counts(ps.clean2, standf)
+# Now abundances are standardized to median sequencing depth.
+ps.clean2
+# In phyloseq tutorial they reverse the "<" operator, effectively keeping only
+# taxa with high CV, for plotting purposes. In any case, the filter below does
+# not remove much, after the previous steps. 
+ps.clean2 <- filter_taxa(ps.clean2, function(x) sd(x)/mean(x) <= 3.5, TRUE)
+ps.clean2
+table(ps.clean2@tax_table@.Data[,'Phylum'])
+table(ps.clean2@tax_table@.Data[,'Genus'])
+```
+
+# Ordination
+
+Following the [tutorial](http://joey711.github.io/phyloseq/distance.html) on distances.
+Note that here I use MDS, while the plot produced above was done using NMDS.
+
+```{r distance1, fig.width=15, fig.height=15}
+dist_methods <- unlist(distanceMethodList)
+# in addition to designdist, I remove those that cause errors:
+dist_methods <- dist_methods[! names(dist_methods) %in% c('vegdist1', 'designdist')]
+plist <- vector("list", length(dist_methods))
+names(plist) <- dist_methods
+# Abundance should be integer, but standardized.
+total <- median(sample_sums(ps))
+standf <- function(x, t=total) round(t * (x / sum(x)))
+ps.used <- transform_sample_counts(ps.prop, standf, t=median(sample_sums(ps)))
+#ps.used <- ps.clean2
+for( i in dist_methods ){
+    # Calculate distance matrix
+    iDist <- phyloseq::distance(ps.used, method=i)
+    # Calculate ordination
+    iMDS  <- ordinate(ps.used, "MDS", distance=iDist)
+    ## Make plot
+    # Don't carry over previous plot (if error, p will be blank)
+    p <- NULL
+    # Create plot, store as temp variable, p
+    p <- plot_ordination(ps.used, iMDS, color="age")
+    # Add title to each plot
+    p <- p + ggtitle(paste("MDS using distance method ", i, sep=""))
+    # Save the graphic to file.
+    plist[[i]] = p
+}
+df = ldply(plist, function(x) x$data)
+names(df)[1] <- "Distance"
+p = ggplot(df, aes(Axis.1, Axis.2, color=age))
+p = p + geom_point(size=3, alpha=0.5)
+p = p + facet_wrap(~Distance, scales="free")
+p = p + ggtitle("MDS on various distance metrics")
+p
+```
+When using `ps.prop`, with `r dim(ps.prop@otu_table@.Data)[1]` taxa, samples are
+much better separate in early and late ages than if using the reduced `ps.clean2`
+dataset. 
+
+
+```{r sesionInfo}
+sessionInfo()
+```
+
+# References

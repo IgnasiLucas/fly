@@ -5,6 +5,10 @@ microbiome of several Drosophila melanogaster isolines, at two time points in th
 life cycle. We sequenced 16S rRNA gene amplicons and we are analyzing them with dada2.
 
 ------------------------------------------------------------------------------------
+## 2020-02-27
+I use phyloseq to combine abundance and taxonomy information, and to produce some
+plots. See the report [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-02-27/phyloseq.html)
+
 
 ## 2020-02-11
 I use dada2 to assign taxonomy to the amplicon sequence variants. Among 2892 sequences,

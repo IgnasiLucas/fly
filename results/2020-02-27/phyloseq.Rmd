@@ -227,7 +227,6 @@ table(ps.clean2@tax_table@.Data[,'Genus'])
 ```
 
 # Ordination
-
 Following the [tutorial](http://joey711.github.io/phyloseq/distance.html) on distances.
 Note that here I use MDS, while the plot produced above was done using NMDS.
 
@@ -259,24 +258,56 @@ for( i in dist_methods ){
 }
 df = ldply(plist, function(x) x$data)
 names(df)[1] <- "Distance"
-p = ggplot(df, aes(Axis.1, Axis.2, color=age))
-p = p + geom_point(size=3, alpha=0.5)
-p = p + facet_wrap(~Distance, scales="free")
-p = p + ggtitle("MDS on various distance metrics")
+p <- ggplot(df, aes(Axis.1, Axis.2, color=age))
+p <- p + geom_point(size=3, alpha=0.5)
+p <- p + facet_wrap(~Distance, scales="free")
+p <- p + ggtitle("MDS on various distance metrics")
 p
 ```
+
 In the plot above, the ordinations that separate better between old and young
 microbiomes seem to be those that use one of the distance methods implemented
 in the `betadiver()` function of the `vegan` package, such as *-1*, *-2*, *-3*,
-*19*, *cc*, *e*, *g*, *hk*... 
+*19*, *cc*, *e*, *g*, *hk*... `betadiver()` calculates either $\Beta$ diversity
+indices or *distances* among local paterns of presence-absence of species.
+The binary distance, from the `dist()` function also works well, and it also
+treats abundances as presence-absence, actually.
 
 When using `ps.prop`, with `r dim(ps.prop@otu_table@.Data)[1]` taxa, samples are
 much better separate in early and late ages than if using the reduced `ps.clean2`
-dataset. 
+dataset.
+
+Taken together, these results suggest that differences between young and old
+microbiomes are subtle and can only be appreciated when looking at the presence
+or absence of both low and high frequency taxa. To put it another way, they do
+not differ much in the most abundant taxa.
+
+The same is true for the batch effect. The same distance methods that separate
+young and old microbiomes also distinguish quite well between the two sequencing
+runs. Curiously, the discrimination between sequencing runs is almos orthogonal
+to that of young and old samples. That is, the two first axes of ordinations
+based on presence-absence distances correspond to the two main drivers of diversity
+among our samples: age and batch effect. Axis 1 mostly corresponds with the
+age of the samples, and Axis 2, with the sequencing batch. Although a small
+counter-clock wise rotation would help the interpretation of the axes.
+
+Just to illustrate the point:
+
+```{r binary}
+p <- ggplot(df[df$Distance == 'binary',], aes(Axis.1, Axis.2, color=age))
+p <- p + geom_point(size=3, alpha=0.5)
+p <- p + ggtitle("MDS on a binary distance. Coloring by age")
+p
+p <- ggplot(df[df$Distance == 'binary',], aes(Axis.1, Axis.2, color=seqrun))
+p <- p + geom_point(size=3, alpha=0.5)
+p <- p + ggtitle("MDS on a binary distance. Coloring by sequencing run")
+p
+```
 
 # Export data
 Here I produce a `csv` file with the `SampleData` dataframe, which includes
-Simpson and Shannon's diversity indices and the ordination coordinates 
+Simpson and Shannon's diversity indices and the ordination coordinates on axes
+1 and 2, using a 
 
 ```{r sesionInfo}
 sessionInfo()

@@ -50,6 +50,7 @@ ggplot(Prevalence, aes(x=meanProp, y=prevalence)) +
 ggplot(Prevalence[Prevalence$Phylum=='Proteobacteria',], aes(x=meanProp, y=prevalence, color=Order)) +
   geom_point() + scale_x_log10()
 ```
+
 In the [preprocessing tutorial](https://joey711.github.io/phyloseq/preprocess.html)
 some filters are suggested that can be applied to a `phyloseq` object. Here,
 I filter sequences before creating the phyloseq object, because that way the

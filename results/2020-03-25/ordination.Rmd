@@ -1,0 +1,245 @@
+---
+title: "Ordination methods"
+author: "J. Ignacio Lucas Lledó"
+date: "25/3/2020"
+output: html_document
+bibliography: ordination.bib
+---
+
+```{r setup1, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup2, warning=FALSE, message=FALSE}
+library(phyloseq)
+library(ggplot2)
+load('../2020-02-27/ps.RData')
+load('../2020-02-11/taxonomy.RData')
+LH <- read.table('../../data/LifeHistoryVar.txt', header=TRUE)
+ls()
+head(LH)
+```
+# Introduction
+
+On 2020-02-27, I run several ordination analyses, mostly following a tutorial, without
+much knowledge of what I was doing. Results were heavily dependent on the distance
+measure used, and also on the aggressiveness of the filtering step (not shown). A more
+detailed analysis is necessary.
+
+# Exploratory ordination analysis
+
+## NMDS with Bray-Curtis distance
+
+State of the art microbial ecology studies use Bray-Curtis distances and non-metric
+multidimensional scaling (NMDS) for exploratory analysis [@PerezCobas2015; @Rosas2018].
+NMDS is a numerical method (iterative, not analyitic). It is not based on eigenvectors
+and it does not provide a unique solution. It has the advantage of using all the variation
+in the data (not only that associated with the main axes) to distribute the objects
+(samples) in a reduced-dimension space. In such a mapping, the ranks of dissimilarities
+among pairs of objects are respected, if possible. NMDS is applied to a matrix of distances,
+where the information on the original variables is collapsed: axes cannot be interpreted in
+terms of the original variables [@Paliy2016].
+
+The Bray-Curtis distance is a popular choice among ecologists [@Ricotta2017]. It is
+computed from raw abundance data (rather than presence/absence data) and it does not
+include double zeros in the comparison, preventing samples without common species from
+looking very similar. In absolute terms, differences between abundant species contribute
+the same to the Bray-Curtis distance as (absolute) differences between rare species
+[@Legendre2012, p. 287]. But, because the same absolute difference is relatively smaller
+in an abundant than in a rare species, it can also be said that a relative difference between
+abundant species is weighted more heavily than the same relative difference among rare
+species [@Ricotta2017, p. 203].
+
+The excess of zeros in our dataset is not a concern for the Bray-Curtis distance, but the
+large scale and differences in overall abundance among samples is. If left untransformed,
+the few distances involving samples with extremely high or low coverage dominate the space,
+to the point of making the plot irrelevant. Let's take a look at the outliers:
+
+```{r outliers}
+z <- sample_sums(ps)
+summary(z)
+z[z < 3000 | z > 300000]
+```
+
+Samples E31D and L35C have too few counts to make any valid inference of their composition.
+They should be removed. Samples L29C and L29D can be normalized or downsampled, just like the
+rest, to approximate an even sequencing coverage among samples. But, actually, after removing
+the two samples with the fewest counts, Bray-Curtis distance does a very good job even without
+any transformation. However, sample sizes should be standardized, to avoid ordination reflect
+primarly sample size.
+
+```{r BrayCurtisNMDS}
+ps.pruned <- prune_samples(sample_sums(ps) > 3000, ps)
+medianSize <- median(sample_sums(ps.pruned))
+ps.pruned <- transformSampleCounts(ps.pruned, function(x, t=medianSize) t * x / sum(x))
+ord.nmds.bray <- ordinate(ps.pruned, method="NMDS", distance="bray",
+                          trymax=1000, trace=0, autotransform=FALSE)
+ord.nmds.bray
+plot_ordination(ps, ord.nmds.bray, color='age')
+```
+
+The stress value is `r ord.nmds.bray$stress`. Values below 0.2 are just fine. Below 0.15
+would be much better. In any case, the main conclusion I draw from this plot is that the
+main difference between early and late microbiomes is that early ones are more dispersed.
+
+I have tried to produce an NMDS using Sørensen's distance, which is the Bray-Curtis equivalent
+for presence-absence data [@Tamas2001]. Unfortunately, the NMDS algorithm fails to converge
+in any acceptable solution when using Sørensen's distance.
+
+## Principal Coordinates Analysis (PCoA)
+
+PCoA also uses a distance matrix as input data, rather than the raw abundance values. Its
+purpose is also to display a set of objects in a reduced dimensionality space while respecting
+as much as possible the original distances among them.
+
+```{r PCoA}
+ord.pcoa.bray <- ordinate(ps.pruned, method='MDS', distance='bray', correction='cailliez')
+plot_ordination(ps.pruned, ord.pcoa.bray, color='age')
+```
+
+Maybe the main difference between PCoA and NMDS is that in PCoA plot, only the variation
+along two main axes is represented, while in NMDS all the variation is squeezed in the
+two dimensions.
+
+In PCoA, we can use any distance, like Sørensen's, which lets us evaluate the effect of
+using binary (presence/absence) instead of quantitative data.
+
+```{r sorensen}
+# Note that using 'sor' as the distance, the resulting ordination is completely wrong,
+# because the 'sor' distance (from betadiver) returns similarities, not dissimilarities.
+# And apparently, phyloseq's ordinate does not take that into account. Distance 't' is
+# the complement of Sørensen's index.
+ord.pcoa.sor <- ordinate(ps.pruned, method='PCoA', distance='t', correction='cailliez')
+plot_ordination(ps.pruned, ord.pcoa.sor, color='age')
+```
+Neither Bray-Curtis nor Sørensen's distances are metric: they do not follow the triangle
+inequality axiom. Thus, they cannot be properly represented in a Euclidean space. Negative
+eigenvalues appear. Nevertheless, the above representations seem to contradict the intution
+that quantitative, abundance data is much richer than presence/absence data. For some
+reason, a simple binary distance seems to define a clear direction of separation between
+early- and late-in-life microbiomes. A very similar result is obtained setting distance
+to 'binary'.
+
+Apparently, one of the original motivations for the development of PCoA was to incorporate
+phylogenetic information in the distances among communities, something that principal
+component analysis (PCA) cannot do. It does sound like a very good idea. Let's see how
+the phylogeny contributes to the PCoA plot:
+
+```{r unifrac, warning=FALSE}
+ord.pcoa.unifrac  <- ordinate(ps.pruned, method='PCoA', distance='unifrac')
+ord.pcoa.wunifrac <- ordinate(ps.pruned, method='PCoA', distance='wunifrac')
+plot_ordination(ps.pruned, ord.pcoa.unifrac, color='age')
+plot_ordination(ps.pruned, ord.pcoa.wunifrac, color='age')
+```
+
+For some reason, the *wunifrac* distance gives unstable results. In any case, the point is that
+both phylogenetic distances among amplicons and abundances have a strong influence in the
+overall ordination of samples. But up to now, the most clear distinction between early and
+late-life samples was achived with a binary distance.
+
+## The role of double absences
+
+Ecologists avoid distance measures in which common absences contribute to similarity.
+This is called 'the double zero problem' [@Legendre2012, p. 253]:
+
+> The double-zero problem shows up in ecology because of the special nature of
+> species descriptors. Species are known to have unimodal distributions along
+> environmental gradients (Whittaker, 1967). Hutchinson’s (1957) niche theory states
+> that species have ecological preferences, meaning that they are more likely to be found
+> at sites where they encounter appropriate living conditions; the distribution of a
+> species has its mode at this optimum value. A species becomes rare and eventually
+> absent as one departs from optimal conditions. If a species is present at two sites, this
+> is an indication of the similarity of these sites; but if a species is absent from two sites,
+> it may be because the two sites are both above the optimal niche value for that species,
+> or both are below, or else one site is above and the other is below that value. One
+> cannot tell which of these circumstances is the correct one.
+>
+> It is thus preferable to abstain from drawing any ecological conclusion from the
+> absence of a species at two sites. In numerical terms, this means to skip double zeros
+> altogether when computing similarity or distance coefficients using species presence-
+> absence or abundance data. Coefficients of this type are called asymmetrical because
+> they treat zeros in a different way than other values.
+
+For gut microbial communities of a single host species in laboratory, standard conditions,
+it is hard to believe that we are sampling beyond the optimal environment of any microbial
+species. In the current setting, we probably should not expect taxa to show a unimodal
+distribution. Even across isolines, there is no *a priori* reason to think that some
+isolines offer a better environment to particular bacteria than others. Variation in the
+distribution of bacterial taxa among samples is not driven by environmental heterogeneity.
+Thus, a common absence can actually be meaningful in the comparison among samples.
+
+[@Tamas2001] generalize several distance measures that take absences into account from
+the binary to the quantitative scale. Their genaralization of a binary distance defined
+by D.P. Faith in 1983 can help us reveal the effect of doble absences in our data set.
+The index is a similarity and is given by equation 9b in [@Tamas2001]:
+
+$FA2q_{jk} = \frac{\sum_{i=1}^n min(x_{ij}, x_{ik}) + 0.5\sum_{i=1}^n (\max_j(x_{ij}) - \max(x_{ij},x_{ik}))}{\sum_{i=1}^n\max_j(x_{ij})}$
+
+...
+
+# Redundancy analysis
+
+Ordination analyses are a set of multivariate methods that can be classified in three
+main groups, according to their main purpose: exploratory, interpretative and
+discriminatory methods [@Paliy2016]. 
+
+In our model, microbiome composition is but a predictor variable of life-history
+variables related to fitness and measured on isolines. To be more precise, for every
+isoline we have measured two microbiome compositions (with replicates): one early and
+one late in life. They are expected to be correlated, but different, and both may
+contribute to explain life-history traits. The main question is to what extent microbiome
+composition influences life-history traits, and how. This is not an exploratory
+analysis, but an interpretative one, in which we use a large set of variables (taxa
+abundances) to try to explain part of the variation in life-history traits.
+
+A redundancy analysis (RDA in the literature) seems to be the best choice, although
+multivariate versions of generalized linear models (GLM) are also a possibility [@Paliy2016].
+The `vegan` package includes an `rda()` function, that takes community data as the
+presumed response variables, and expects environmental data as the explanatory ones.
+That's the typical usage in ecology, and also microbial ecology [@Zhang2012, e.g.].
+But our goal is the reverse: to explain isoline (community-level) properties by their
+microbiome composition. 
+
+...
+
+
+
+
+
+# Some quotes
+
+ [@Legendre2001, p. 276]:
+
+> If rare species are well sampled and truly rare, they
+> may be used as indicators of the conditions that may exist
+> at some sites only. In that case, they should receive
+> high weight, as they do in CA and, to a lesser extent, in
+> PCA after the chi-square transformation (Table 2). In
+> contrast, when rare species are observed sporadically at
+> some sites but, as the result of “sampling error”, not at
+> others where they are also present, giving them high
+> weight in the analysis is unwise. This phenomenon is ex-
+> acerbated in environments where sampling is conducted
+> blindly – for example, in aquatic and soil ecology. Co-
+> efficients such as the Euclidean, chord, species profile or
+> Hellinger distances do not give high weights to the rare
+> species (Table 2).
+
+Also from [@Legendre2001, p. 279]:
+
+> For the analysis of community gradients, it does not matter
+> that an analysis gives high weights to the rare species
+> when the end-product is simply a reduced-space ordination diagram.
+> [...] The weights given to rare species do matter, however, when the
+> end-product is a test of significance of the relationship between
+> species composition and a set of explanatory variables, or a test
+> of factors in a multiple analysis-of-variance model following the
+> db-RDA approach of Legendre and Anderson (1999).
+
+# Session information
+
+```{r sessionInfo}
+sessionInfo()
+```
+
+# References

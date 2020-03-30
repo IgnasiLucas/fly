@@ -13,6 +13,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r setup2, warning=FALSE, message=FALSE}
 library(phyloseq)
 library(ggplot2)
+library(gridExtra)
+library(ape)
+library(vegan)
 load('../2020-02-27/ps.RData')
 load('../2020-02-11/taxonomy.RData')
 LH <- read.table('../../data/LifeHistoryVar.txt', header=TRUE)
@@ -59,6 +62,7 @@ to the point of making the plot irrelevant. Let's take a look at the outliers:
 z <- sample_sums(ps)
 summary(z)
 z[z < 3000 | z > 300000]
+rm(z)
 ```
 
 Samples E31D and L35C have too few counts to make any valid inference of their composition.
@@ -68,14 +72,16 @@ the two samples with the fewest counts, Bray-Curtis distance does a very good jo
 any transformation. However, sample sizes should be standardized, to avoid ordination reflect
 primarly sample size.
 
-```{r BrayCurtisNMDS}
+```{r BrayCurtisNMDS, fig.width=10}
 ps.pruned <- prune_samples(sample_sums(ps) > 3000, ps)
 medianSize <- median(sample_sums(ps.pruned))
-ps.pruned <- transformSampleCounts(ps.pruned, function(x, t=medianSize) t * x / sum(x))
+ps.pruned <- transformSampleCounts(ps.pruned, function(x, t=medianSize) round(t * x / sum(x)))
 ord.nmds.bray <- ordinate(ps.pruned, method="NMDS", distance="bray",
                           trymax=1000, trace=0, autotransform=FALSE)
 ord.nmds.bray
-plot_ordination(ps, ord.nmds.bray, color='age')
+p1 <- plot_ordination(ps, ord.nmds.bray, color='age')
+p2 <- plot_ordination(ps, ord.nmds.bray, color='seqrun')
+grid.arrange(p1, p2, nrow=1, top='NMDS with Bray-Curtis distances')
 ```
 
 The stress value is `r ord.nmds.bray$stress`. Values below 0.2 are just fine. Below 0.15
@@ -92,9 +98,11 @@ PCoA also uses a distance matrix as input data, rather than the raw abundance va
 purpose is also to display a set of objects in a reduced dimensionality space while respecting
 as much as possible the original distances among them.
 
-```{r PCoA}
-ord.pcoa.bray <- ordinate(ps.pruned, method='MDS', distance='bray', correction='cailliez')
-plot_ordination(ps.pruned, ord.pcoa.bray, color='age')
+```{r PCoA, fig.width=10}
+ord.pcoa.bray <- ordinate(ps.pruned, method='PCoA', distance='bray', correction='cailliez')
+p1 <- plot_ordination(ps.pruned, ord.pcoa.bray, color='age')
+p2 <- plot_ordination(ps.pruned, ord.pcoa.bray, color='seqrun')
+grid.arrange(p1, p2, nrow=1, top='PCoA with Bray-Curtis distances')
 ```
 
 Maybe the main difference between PCoA and NMDS is that in PCoA plot, only the variation
@@ -104,32 +112,36 @@ two dimensions.
 In PCoA, we can use any distance, like Sørensen's, which lets us evaluate the effect of
 using binary (presence/absence) instead of quantitative data.
 
-```{r sorensen}
+```{r sorensen, fig.width=10}
 # Note that using 'sor' as the distance, the resulting ordination is completely wrong,
 # because the 'sor' distance (from betadiver) returns similarities, not dissimilarities.
 # And apparently, phyloseq's ordinate does not take that into account. Distance 't' is
 # the complement of Sørensen's index.
 ord.pcoa.sor <- ordinate(ps.pruned, method='PCoA', distance='t', correction='cailliez')
-plot_ordination(ps.pruned, ord.pcoa.sor, color='age')
+p1 <- plot_ordination(ps.pruned, ord.pcoa.sor, color='age')
+p2 <- plot_ordination(ps.pruned, ord.pcoa.sor, color='seqrun')
+grid.arrange(p1, p2, nrow=1, top='PCoA with Sørensen distance')
 ```
-Neither Bray-Curtis nor Sørensen's distances are metric: they do not follow the triangle
+Neither Bray-Curtis nor Sørensen distances are metric: they do not follow the triangle
 inequality axiom. Thus, they cannot be properly represented in a Euclidean space. Negative
-eigenvalues appear. Nevertheless, the above representations seem to contradict the intution
-that quantitative, abundance data is much richer than presence/absence data. For some
-reason, a simple binary distance seems to define a clear direction of separation between
-early- and late-in-life microbiomes. A very similar result is obtained setting distance
-to 'binary'.
+eigenvalues appear. Nevertheless, the results are both very reasonable. It is actually
+surprising that the binary Sørensen distance separate so well between early and late
+samples, and between first and second batches.
 
 Apparently, one of the original motivations for the development of PCoA was to incorporate
 phylogenetic information in the distances among communities, something that principal
 component analysis (PCA) cannot do. It does sound like a very good idea. Let's see how
 the phylogeny contributes to the PCoA plot:
 
-```{r unifrac, warning=FALSE}
+```{r unifrac, warning=FALSE, fig.width=10}
 ord.pcoa.unifrac  <- ordinate(ps.pruned, method='PCoA', distance='unifrac')
 ord.pcoa.wunifrac <- ordinate(ps.pruned, method='PCoA', distance='wunifrac')
-plot_ordination(ps.pruned, ord.pcoa.unifrac, color='age')
-plot_ordination(ps.pruned, ord.pcoa.wunifrac, color='age')
+p1 <- plot_ordination(ps.pruned, ord.pcoa.unifrac, color='age')
+p2 <- plot_ordination(ps.pruned, ord.pcoa.unifrac, color='seqrun')
+p3 <- plot_ordination(ps.pruned, ord.pcoa.wunifrac, color='age')
+p4 <- plot_ordination(ps.pruned, ord.pcoa.wunifrac, color='seqrun')
+grid.arrange(p1, p2, nrow=1, top='PCoA with unweighted unifrac distances')
+grid.arrange(p3, p4, nrow=1, top='PCoA with weighted unifrac distances')
 ```
 
 For some reason, the *wunifrac* distance gives unstable results. In any case, the point is that
@@ -160,13 +172,52 @@ This is called 'the double zero problem' [@Legendre2012, p. 253]:
 > absence or abundance data. Coefficients of this type are called asymmetrical because
 > they treat zeros in a different way than other values.
 
-For gut microbial communities of a single host species in laboratory, standard conditions,
+For gut microbial communities of a single host species in laboratory conditions,
 it is hard to believe that we are sampling beyond the optimal environment of any microbial
 species. In the current setting, we probably should not expect taxa to show a unimodal
 distribution. Even across isolines, there is no *a priori* reason to think that some
-isolines offer a better environment to particular bacteria than others. Variation in the
-distribution of bacterial taxa among samples is not driven by environmental heterogeneity.
-Thus, a common absence can actually be meaningful in the comparison among samples.
+isolines offer a better environment to particular bacteria than others.
+
+In any case, the focus of the experimental design are not the causes but the consequences
+of variation in gut microbiome composition. What is considered similar or different
+depends on whether the variable is explanatory or a response. Because an absence can
+be caused by several unknown factors (e.g., either too low or too high salinity), it
+should not count as a similarity. But when assessing the consequences of an absence,
+any two absences are causaly equivalent, and they should count in the similarity measure.
+
+[@Faith1983] suggested a binary similarity measure that considers double absences as neutral,
+contributing neither to similarity nor to distance. It is defined as $C=\frac{a + 0.5d}{N}$,
+where $a$ is the number of species present in both sites, $d$ the number of double
+absences, and $N$, the total number of species. If double absences were to count just
+as much as a mismatch to distance, $C$ would turn into Russell and Rao similarity: $\frac{a}{N}$.
+On the other side, if double absences were to contribute to similarity as much as double
+presences, then $C$ would turn into the Raw similarity, $\frac{a+d}{N}$. They can
+all be easily implemented with the function `designdist()`. Corresponding distances
+are obtained subtracting similarities from 1.
+
+```{r FaithBinary}
+ord.pcoa.RussellRao <- pcoa(designdist(otu_table(ps.pruned),
+                                       method = '1 - a / (a + b + c + d)',
+                                       abcd = TRUE),
+                            rn = sample_names(ps.pruned), correction = 'lingoes')
+ord.pcoa.faith      <- pcoa(designdist(otu_table(ps.pruned),
+                                       method = '1 - (a + 0.5 * d) / (a + b + c + d)',
+                                       abcd = TRUE),
+                            rn = sample_names(ps.pruned), correction = 'lingoes')
+ord.pcoa.raw        <- pcoa(designdist(otu_table(ps.pruned),
+                                       method = '1 - (a + d) / (a + b + c + d)',
+                                       abcd = TRUE),
+                            rn = sample_names(ps.pruned), correction = 'lingoes')
+p1 <- plot_ordination(ps.pruned, ord.pcoa.RussellRao, color='age')
+p2 <- plot_ordination(ps.pruned, ord.pcoa.RussellRao, color='seqrun')
+p3 <- plot_ordination(ps.pruned, ord.pcoa.faith, color='age')
+p4 <- plot_ordination(ps.pruned, ord.pcoa.faith, color='seqrun')
+p5 <- plot_ordination(ps.pruned, ord.pcoa.raw, color='age')
+p6 <- plot_ordination(ps.pruned, ord.pcoa.raw, color='seqrun')
+grid.arrange(p1, p2, nrow=1, top='PCoA with Russell-Rao distance. Double absences as mismatches')
+grid.arrange(p3, p4, nrow=1, top='PCoA with Faith distance. Double absences as neutral')
+grid.arrange(p5, p6, nrow=1, top='PCoA with Raw distance. Double absences as double presences')
+```
 
 [@Tamas2001] generalize several distance measures that take absences into account from
 the binary to the quantitative scale. Their genaralization of a binary distance defined
@@ -175,7 +226,38 @@ The index is a similarity and is given by equation 9b in [@Tamas2001]:
 
 $FA2q_{jk} = \frac{\sum_{i=1}^n min(x_{ij}, x_{ik}) + 0.5\sum_{i=1}^n (\max_j(x_{ij}) - \max(x_{ij},x_{ik}))}{\sum_{i=1}^n\max_j(x_{ij})}$
 
-...
+Unfortunately, the `designdist()` function does not allow a direct implementation of
+this similarity index. I use my own implementation below. I make the 0.5 factor variable
+to obtain quantitative analogs of Raw and Russell and Rao distances.
+
+```{r Faith2Q, fig.width=10}
+Faith2q <- function(x, W=0.5){
+  maxj <- apply(x, 2, max)  # vector of maximum abundances species achieve across sites.
+  d <- matrix(0, nrow=nrow(x), ncol=nrow(x))  # comparing rows, assumed to be 'sites'
+  for (j in 2:nrow(x)) {
+    for (i in 1:(j-1)) {
+      d[j,i] <- 1 - 
+        (sum(pmin.int(x[i,], x[j,])) + W * sum(maxj - pmax.int(x[i,], x[j,]))) / sum(maxj)
+    }
+  }
+  return(as.dist(d))
+}
+ord.pcoa.faith2qW0 <- pcoa(Faith2q(otu_table(ps.pruned), W=0),
+                         rn=sample_names(ps.pruned), correction='lingoes')
+ord.pcoa.faith2qW05 <- pcoa(Faith2q(otu_table(ps.pruned), W=0.5),
+                            rn=sample_names(ps.pruned), correction='lingoes')
+ord.pcoa.faith2qW1 <- pcoa(Faith2q(otu_table(ps.pruned), W=1),
+                           rn=sample_names(ps.pruned), correction='lingoes')
+p1 <- plot_ordination(ps.pruned, ord.pcoa.faith2qW0, color='age')
+p2 <- plot_ordination(ps.pruned, ord.pcoa.faith2qW0, color='seqrun')
+p3 <- plot_ordination(ps.pruned, ord.pcoa.faith2qW05, color='age')
+p4 <- plot_ordination(ps.pruned, ord.pcoa.faith2qW05, color='seqrun')
+p5 <- plot_ordination(ps.pruned, ord.pcoa.faith2qW1, color='age')
+p6 <- plot_ordination(ps.pruned, ord.pcoa.faith2qW1, color='seqrun')
+grid.arrange(p1, p2, nrow=1, top='PCoA with quantitative Rusell-Rao distance. Double absences as mismatches')
+grid.arrange(p3, p4, nrow=1, top='PCoA with quantitative Faith distance, with double absences neutral')
+grid.arrange(p5, p6, nrow=1, top='PCoA with quantitative Raw distance, with double absences as double presences')
+```
 
 # Redundancy analysis
 

@@ -7,7 +7,20 @@ life cycle. We sequenced 16S rRNA gene amplicons and we are analyzing them with 
 ------------------------------------------------------------------------------------
 
 ## 2020-03-25
-Detailed ordination analysis. In progress.
+Detailed ordination analysis. Here I learned about ordination analysis. I tested different
+distance measures to represent the variation among samples in two dimensions. I confirm
+that presence-absence data, rather than quantitative measures of abundance, allow a clearer
+distinction of what we consider potentially important sources of variation in two perpendicular
+axes: the age of the host flies, and the sequencing batch. I also convinced myself that
+double taxon absences should contribute to similarity among communities in our analysis,
+despite this not being the case in traditional applications of ordination in ecology.
+However, counting or not double absences does not change the display of samples in two
+dimensions.
+
+Here I also decide that a redundancy analysis is what we need to determine how and to
+what extent bacterial taxa in the gut microbiome affect variation of life-history traits.
+I just set up the data matrices and make the analysis run, without getting into the
+details.
 
 ## 2020-03-17
 Using DESeq2 package to test for different abundance between early and late

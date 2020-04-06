@@ -224,13 +224,13 @@ grid.arrange(p5, p6, nrow=1, top='PCoA with Raw distance. Double absences as dou
 The Raw distances produced some negative eigenvalues and triggered the correction.
 That may be the reason why the relative eigenvalues of the axes are not specified
 in the last plot. With Raw distances, the relative eigenvalue of axis 1 is
-`r sprintf("%.1f %%", ord.pcoa.raw$values[1,'Rel_corr_eig'])`, and that for axis
-2 is `r sprintf("%.1f %%", ord.pcoa.raw$values[2, 'Rel_corr_eig'])`.
+`r sprintf("%.2f %%", ord.pcoa.raw$values[1,'Rel_corr_eig'])`, and that for axis
+2 is `r sprintf("%.2f %%", ord.pcoa.raw$values[2, 'Rel_corr_eig'])`.
 
 @Tamas2001 generalize several distance measures that take absences into account from
-the binary to the quantitative scale. Their genaralization of a binary distance defined
-by D.P. Faith in 1983 can help us reveal the effect of doble absences in our data set.
-The index is a similarity and is given by equation 9b in @Tamas2001:
+the binary to the quantitative scale. Their genaralization of the binary distance defined
+by D.P. Faith in 1983, called *C* above, can help us reveal the effect of doble absences
+in our data set. The index is a similarity and is given by equation 9b in @Tamas2001:
 
 $FA2q_{jk} = \frac{\sum_{i=1}^n min(x_{ij}, x_{ik}) + 0.5\sum_{i=1}^n (\max_j(x_{ij}) - \max(x_{ij},x_{ik}))}{\sum_{i=1}^n\max_j(x_{ij})}$
 
@@ -268,8 +268,8 @@ grid.arrange(p5, p6, nrow=1, top='PCoA with quantitative Raw distance, with doub
 ```
 
 Axes in the last plot, for quantitative version of Raw distance, have 
-`r sprintf("%.1f", ord.pcoa.faith2qW1$values[1,'Rel_corr_eig'])` and
-`r sprintf("%.1f %%", ord.pcoa.faith2qW1$values[2, 'Rel_corr_eig'])` relative
+`r sprintf("%.2f", ord.pcoa.faith2qW1$values[1,'Rel_corr_eig'])` and
+`r sprintf("%.2f %%", ord.pcoa.faith2qW1$values[2, 'Rel_corr_eig'])` relative
 eigenvalues.
 
 # Redundancy analysis
@@ -297,8 +297,8 @@ microbiome composition.
 
 ## Standardization of response variables
 
-@Legendre2012 [p. ] recommends to standardize the response variables to make interpretation
-easier. I create a new data frame `Y` with the transformed variables, using only values for
+@Legendre2012 recommends to standardize the response variables to make interpretation
+easier. I create a new data frame `Y` with the standardized variables, using only values for
 the isolines for which we also have microbiome data. 
 
 ```{r Y, fig.width=10, fig.height=10}
@@ -339,7 +339,7 @@ replicates, because it will collapse the biological variation among replicates.
 That's something we would not do, for example, to compare abundances among time
 points or among isolines (see `2020-03-17`). And it will probably bias our results
 here as well, because reducing 3 or 4 abundance data points to only one makes it look
-jsut as precise as any other, while in reality some abundances are much more variable
+just as precise as any other, while in reality some abundances are much more variable
 than others. I don't see a way around it. The possibility of duplicating the rows
 of the `Y` matrix to match the replicates would not work. Even if that didn't
 affect the redundancy analysis (I don't know), it would still create a problem with
@@ -424,11 +424,19 @@ barplot(rowSums(EA), xlab='Isoline', main='Total abundances in early samples')
 barplot(rowSums(LA), xlab='Isoline', main='Total abundances in late samples')
 ```
 
+Isolines 27 and 35 have very low counts among the early samples. If I keep them,
+I should only use the taxa that are abundant enough to have at least a
+chance of being counted in isolines 27 and 35. I will keep them for the moment,
+because I don't know if using thousands of explanatory variables is feasible,
+anyways. Plus, the more low-abundance taxa we remove, the easier should the
+normalization be.
+
 ```{r filtering, fig.width=10, warning=FALSE}
-# It won't make sense to estimate proportions after filtering.
+# It would not make sense to estimate proportions after filtering.
 # I transpose to keep amplicons in columns and isolines in rows
 EA.prop <- t(apply(EA, 1, function(x) x / sum(x)))
 LA.prop <- t(apply(LA, 1, function(x) x / sum(x)))
+
 AbundanceSummary <- data.frame(
   EA.meanProp = apply(EA.prop, 2, mean),
   LA.meanProp = apply(LA.prop, 2, mean),
@@ -440,11 +448,62 @@ p1 <- ggplot(AbundanceSummary, aes(x=EA.meanProp, y=EA.prevalence)) +
 p2 <- ggplot(AbundanceSummary, aes(x=LA.meanProp, y=LA.prevalence)) +
   geom_point(size=0.5) + scale_x_log10() + ggtitle('Late')
 grid.arrange(p1, p2, nrow=1)
+
+EA.filter <- AbundanceSummary$EA.meanProp >= 5.0e-5 & AbundanceSummary$EA.prevalence >= 5
+LA.filter <- AbundanceSummary$LA.meanProp >= 5.0e-5 & AbundanceSummary$LA.prevalence >= 5
+
+EA.prop.clean <- EA.prop[,EA.filter]
+LA.prop.clean <- LA.prop[,LA.filter]
 ```
 
+```{r transformations}
+EA.cat <- EA.prop.clean
+EA.cat[EA.prop.clean <= 3.5e-6] <- 0
+EA.cat[EA.prop.clean >  3.5e-6 & EA.prop.clean <= 2.0e-4] <- 1
+EA.cat[EA.prop.clean >  2.0e-4 & EA.prop.clean <= 1.5e-3] <- 2
+EA.cat[EA.prop.clean >  1.5e-3] <- 3
+colnames(EA.cat) <- paste0('E', colnames(EA.cat))
 
+LA.cat <- LA.prop.clean
+LA.cat[LA.prop.clean <= 3.5e-6] <- 0
+LA.cat[LA.prop.clean >  3.5e-6 & LA.prop.clean <= 2.0e-4] <- 1
+LA.cat[LA.prop.clean >  2.0e-4 & LA.prop.clean <= 1.5e-3] <- 2
+LA.cat[LA.prop.clean >  1.5e-3] <- 3
+colnames(LA.cat) <- paste0('L', colnames(LA.cat))
 
+Xcat <- cbind(EA.cat, LA.cat)
 
+# This is (meant to be) the chi-square metric transformation in Legendre & Gallagher
+# (2001; eq. 7).
+EA.X2metric <- t(apply( EA, 1, function(x, A=colSums(EA)) x / (sum(x) * sqrt(A)) ))
+LA.X2metric <- t(apply( LA, 1, function(x, A=colSums(LA)) x / (sum(x) * sqrt(A)) ))
+
+# I filter after transformation, because I feel a transformation based on
+# total abundances would not be what expected after filtering reduces total
+# abundances.
+EA.X2metric <- EA.X2metric[,EA.filter]
+LA.X2metric <- LA.X2metric[,LA.filter]
+colnames(EA.X2metric) <- paste0('E', colnames(EA.X2metric))
+colnames(LA.X2metric) <- paste0('L', colnames(LA.X2metric))
+X2metric <- cbind(EA.X2metric)
+```
+
+Below I run the RDA analysis. I exclude the first (*isoline*) and the last
+(*ActuarB*) variables in the response matrix. The reason to remove the *ActuarB*
+is that there are two missing values there. For the moment, I exclude that variable,
+to be able to report this preliminary analysis. I leave for the next report:
+
+- Deal with the missing values in a more satisfactory way.
+- Deal with the overdeterminatinon problem (too many explanatory variables).
+- Evaluate the transformations.
+- Remove the effect of the sequencing run.
+- Interprete the results.
+
+```{r rda}
+RDA <- rda(X = Y[,-c(1,11)], Y = X2metric)
+RDA
+plot(RDA)
+```
 
 # Session information
 

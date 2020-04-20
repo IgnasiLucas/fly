@@ -494,7 +494,7 @@ is that there are two missing values there. For the moment, I exclude that varia
 to be able to report this preliminary analysis. I leave for the next report:
 
 - Deal with the missing values in a more satisfactory way.
-- Deal with the overdeterminatinon problem (too many explanatory variables).
+- Deal with the underdeterminatinon problem (too many explanatory variables).
 - Evaluate the transformations.
 - Remove the effect of the sequencing run.
 - Interprete the results.

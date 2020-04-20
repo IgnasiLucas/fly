@@ -1,0 +1,318 @@
+---
+title: "Redundancy analysis"
+author: "J. Ignacio Lucas Lledó"
+date: "13/4/2020"
+output: html_document
+bibliography: RDA.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup2, warning=FALSE, message=FALSE}
+#library(phyloseq)
+library(ggplot2)
+library(gridExtra)
+#library(ape)
+library(vegan)
+library(Biostrings)
+library(plyr)
+library(e1071)
+library(mice)
+ #load('../2020-02-27/ps.RData')
+load('../2020-02-11/taxonomy.RData')
+LH <- read.table('../../data/LifeHistoryVar.txt', header=TRUE, row.names=1)
+ls()
+```
+
+# Underdetermination
+
+**Redundancy analysis** was chosen because it does exactly what we need. It can tell
+what portion of variance in a set of response variables is explained by another
+set of variables. It is a combination of multivariate regression and principal
+component analysis. It is like a PCA of the objects described by the response
+variables, but *constrained* in such a way that the axis are chosen not to accumulate
+most of the variance, but most of the correlation with the set of explanatory
+variables. The resulting ordination maximizes the amount of variance in **Y** that
+is explained by **X**.
+
+But it has a limitation. The matrix of explanatory variables **X** is supposed to
+have more cases or observations (in our case, **isolines**) than variables. That
+is of course not the case. Our explanatory variables are the several hundreds of
+amplicons identified in the gut microbiomes. This high-dimensionality problem is
+very common when using XX century statistics with XXI century data. Mathematically
+it is known as **underdetermination**. A linear system is considered underdetermined
+when it has more unknowns than equations. 
+
+In linear regression the equations are the  different samples or observations and
+the *unknowns* are the regression coefficients corresponding to each independent
+variable and the intercept. Typically (last century) a linear regression was an
+*overdetermined* system: with more equations than unknowns. In that case, ordinary
+least squares can be used to find the approximate solution, or the exact one if
+it existed. Underdetermined systems seem harder to deal with. They have
+either no solution or infinitely many.
+
+So, in the best case, when regressing life-history traits against the abundances
+of hundreds of amplicons, we would obtain an infinitude of possible combinations of
+coefficients. In general, it seems that spurious correlations would appear [@Pezeshki2004].
+But in practice, the implementation may not even bother. That is the case with the
+`rda()` function in the `vegan` package: it does not use all the variables available,
+but just the few first ones.
+
+# Canonical correlation analysis
+
+An alternative to redundancy analysis is canonical correlation analysis (CCorA).
+The difference is analogous to that between regression and correlation. In CCorA
+the two matrices **X** and **Y** are considered in a symmetrical way, without the
+distinction between response and explanatory variables. CCorA finds *linear combinations*
+of **X** and **Y** that have maximum correlation with each other. It seems to me
+that CCorA avoids the underdetermination by reducing the dimensionality of both
+**X** and **Y**. The canonical correlations are correlations between pairs
+of linear combinations of variables in **X** and **Y**. There aren't any
+multiple regressions involving the variables directly.
+
+However, CCorA has a different problem. Because of the way canonical correlations
+are computed, the covariance matrices of **X** and **Y** must be invertible. When
+there are fewer observations than variables, the sample covariance matrix is not
+full rank [@Lagrange2012, p. 138], and therefore it is not invertible. I suspect
+there should be ways to run CCorA that do not depend on the inversion of sample
+covariance matrices. But I don't know of any such implementation.
+
+# The strategy
+
+An alternative is to reduce the dimensionality of the amplicon abundance
+data before running the RDA. This is not ideal because the ordination of isolines based
+on amplicon abundances will not maximize correlation with the life-histroy traits, but
+just variance. Thus, if I run a PCA, the main axes will carry most of the variance but
+not necessarily most of the correlation. This approach will only be successful if the
+correlation signal is among the most variable amplicons, to be picked by the reduced
+number of dimensions. Even asuming that the existing correlations involve amplicons
+variable enough for that variation to be included in the first few axes of a PCA, an
+important question is how many principal components we should use in the RDA. It would
+be tempting to use as many as possible to make sure that any correlation signal is still
+present. But, including too many components would very easily generate spurious, false
+positive correlations, as explained in @Song2016. This is a model-selection problem,
+and it is related to the question of how many correlated signals there are [@Song2016].
+It seems reasonable to assume that the number of correlated sigas is small, even
+compared with the number of isolines.
+
+A PCA would be adequate, in my view, despite of the warnings usually raised in ecological
+datasets. @Legendre2012 discourages the use of PCA on species abundance data when there
+are many double zeros. The reason is that PCA preserves Euclidean distance between
+sites, which counts double absences as contributing to similarity. As discussed in
+`2020-03-25`, when using the abundance data as the independent variables, rather than
+the dependent, it is acceptable for double absences to contribute to similarity, because
+they are causaly equivalent.
+
+About the high dimensionality problem, it does not seem to be fatal for PCA, as long as
+we are willing to use fewer than 24 components, which is the number of isolines.
+
+# Abundance data
+
+Instead of importing the prepared dataset from `2020-03-25`, I will prepare the
+matrices now again, to make this folder more self-contained. I start with the
+abundance data matrix. Recall I take the taxonomy information (`taxa`) and the
+abundance (`SeqTabNoChim`) from `2020-02-11`.
+
+```{r abundanceData}
+# Renaming the amplicons
+dna <- DNAStringSet(row.names(taxa))
+names(dna) <- sprintf("A%04i", seq(dim(taxa)[1])) # Naming all available sequences, even filtered
+row.names(taxa)        <- names(dna)[match(row.names(taxa), dna)] 
+colnames(SeqTabNoChim) <- names(dna)[match(colnames(SeqTabNoChim), dna)]
+SampleData <- data.frame(
+  age = factor(substr(row.names(SeqTabNoChim), 1, 1), levels=c('E','L'), labels=c('Early','Late')),
+  isoline = factor(stringr::str_extract(rownames(SeqTabNoChim), "[[:digit:]]+"),
+                   levels=as.character(c(6,10,11,12,14,15,17,19,20,22,23,24,25,26,27,28,29,30,31,33,35,36,38,39)),
+                   ordered=FALSE),
+  replicate = gsub("([EL][[:digit:]]+|.fastq.gz)", "", rownames(SeqTabNoChim)),
+  seqrun = factor(1, levels=c(1,2))
+)
+run2 <- row.names(SeqTabNoChim) %in% c('E22C.fastq.gz', 'E23A.fastq.gz', 'E25A.fastq.gz',
+                                       'E25B.fastq.gz', 'E25C.fastq.gz', 'E25D.fastq.gz',
+                                       'E26A.fastq.gz', 'E26B.fastq.gz', 'E26C.fastq.gz',
+                                       'E26D.fastq.gz', 'E27A.fastq.gz', 'E27B.fastq.gz',
+                                       'E27C.fastq.gz', 'E28A.fastq.gz', 'E28B.fastq.gz',
+                                       'E28C.fastq.gz', 'E28D.fastq.gz', 'E29A.fastq.gz',
+                                       'E29B.fastq.gz', 'E29C.fastq.gz', 'E29D.fastq.gz',
+                                       'E30A.fastq.gz', 'E30B.fastq.gz', 'E30C.fastq.gz',
+                                       'E30D.fastq.gz', 'E31A.fastq.gz', 'E31B.fastq.gz',
+                                       'E31C.fastq.gz', 'E31D.fastq.gz', 'E33A.fastq.gz',
+                                       'E33B.fastq.gz', 'E33C.fastq.gz', 'E33D.fastq.gz',
+                                       'E35A.fastq.gz', 'E35B.fastq.gz', 'E35C.fastq.gz',
+                                       'E35D.fastq.gz', 'E36A.fastq.gz', 'E36B.fastq.gz',
+                                       'E36C.fastq.gz', 'E36D.fastq.gz', 'E38A.fastq.gz',
+                                       'E38B.fastq.gz', 'E38C.fastq.gz', 'E38D.fastq.gz',
+                                       'E39A.fastq.gz', 'E39B.fastq.gz', 'E39C.fastq.gz',
+                                       'E39D.fastq.gz', 'L23B.fastq.gz', 'L24C.fastq.gz',
+                                       'L25A.fastq.gz', 'L25B.fastq.gz', 'L25C.fastq.gz',
+                                       'L25D.fastq.gz', 'L26A.fastq.gz', 'L26B.fastq.gz',
+                                       'L26C.fastq.gz', 'L26D.fastq.gz', 'L27A.fastq.gz',
+                                       'L27B.fastq.gz', 'L27C.fastq.gz', 'L28A.fastq.gz',
+                                       'L28B.fastq.gz', 'L28C.fastq.gz', 'L28D.fastq.gz',
+                                       'L29A.fastq.gz', 'L29B.fastq.gz', 'L29C.fastq.gz',
+                                       'L29D.fastq.gz', 'L30A.fastq.gz', 'L30B.fastq.gz',
+                                       'L30C.fastq.gz', 'L30D.fastq.gz', 'L31A.fastq.gz',
+                                       'L31B.fastq.gz', 'L31C.fastq.gz', 'L31D.fastq.gz',
+                                       'L33A.fastq.gz', 'L33B.fastq.gz', 'L33C.fastq.gz',
+                                       'L33D.fastq.gz', 'L35B.fastq.gz', 'L35C.fastq.gz',
+                                       'L35D.fastq.gz', 'L36A.fastq.gz', 'L36B.fastq.gz',
+                                       'L36C.fastq.gz', 'L36D.fastq.gz', 'L38A.fastq.gz',
+                                       'L38B.fastq.gz', 'L38C.fastq.gz', 'L38D.fastq.gz',
+                                       'L39A.fastq.gz', 'L39B.fastq.gz', 'L39C.fastq.gz',
+                                       'L39D.fastq.gz')
+SampleData$seqrun[run2] <- 2
+row.names(SampleData) <- row.names(SeqTabNoChim)
+
+isEarly <- SampleData$age == 'Early'
+isLate  <- SampleData$age == 'Late'
+EarlyAbundance <- SeqTabNoChim[isEarly,]
+LateAbundance  <- SeqTabNoChim[isLate,]
+EarlyIsoline <- SampleData[isEarly, 'isoline']
+LateIsoline  <- SampleData[isLate,  'isoline']
+# I found it impossible to do the following with plyr:
+EA <- do.call(rbind, lapply(split(as.data.frame(EarlyAbundance), EarlyIsoline), colSums))
+LA <- do.call(rbind, lapply(split(as.data.frame(LateAbundance),  LateIsoline),  colSums))
+rm(EarlyAbundance, LateAbundance, EarlyIsoline, LateIsoline, isEarly, isLate, run2, SeqTabNoChim)
+```
+
+Now, `EA` and `LA` are matrices of *isoline* abundances early and late in life. That is,
+I added up abundances in replicates of the same isoline. I want to use all isolines, even
+though isolines 27 and 35 have very low counts among early samples. I will have to apply
+a strict filter on amplicons, to exclude those not abundant enough to get sampled in (early)
+isolines 27 and 35. In any case, removing low-frequency amplicons will help reduce the
+dimensionality of the data.
+
+I prepare the filters before transforming the data.
+
+```{r filters, fig.width=10, warning=FALSE}
+# It would not make sense to estimate proportions after filtering.
+# I transpose to keep amplicons in columns and isolines in rows
+EA.prop <- t(apply(EA, 1, function(x) x / sum(x)))
+LA.prop <- t(apply(LA, 1, function(x) x / sum(x)))
+
+AbundanceSummary <- data.frame(
+  EA.meanProp = apply(EA.prop, 2, mean),
+  LA.meanProp = apply(LA.prop, 2, mean),
+  EA.prevalence = colSums(EA > 0),
+  LA.prevalence = colSums(LA > 0)
+)
+p1 <- ggplot(AbundanceSummary, aes(x=EA.meanProp, y=EA.prevalence)) +
+  geom_point(size=0.5) + scale_x_log10() + ggtitle('Early') +
+  geom_vline(xintercept=5.0e-5, color='red') + geom_hline(yintercept=5, color='red')
+p2 <- ggplot(AbundanceSummary, aes(x=LA.meanProp, y=LA.prevalence)) +
+  geom_point(size=0.5) + scale_x_log10() + ggtitle('Late') +
+  geom_vline(xintercept=5.0e-5, color='red') + geom_hline(yintercept=5, color='red')
+grid.arrange(p1, p2, nrow=1)
+
+EA.filter <- AbundanceSummary$EA.meanProp >= 5.0e-5 & AbundanceSummary$EA.prevalence >= 5
+LA.filter <- AbundanceSummary$LA.meanProp >= 5.0e-5 & AbundanceSummary$LA.prevalence >= 5
+```
+
+Abundance data needs to be transformed because it is extremely skewed. In an accompanying
+report, `transformations.Rmd` I decide that the most adequate transformation is logarithmic,
+with an added constant equal to 1.0e-6. After transformation, the dataset will be further
+reduced by removing several amplicons the abundance distribution of which are too skewed
+after transformation.
+
+```{r transformation}
+colnames(EA.prop) <- paste0('E', colnames(EA.prop))
+colnames(LA.prop) <- paste0('L', colnames(LA.prop))
+A <- cbind(EA.prop[,EA.filter], LA.prop[,LA.filter])
+A.log <- log10(A + 1.0e-6)
+A.log.skewness <- apply(A.log, 2, skewness)
+A.filter <- abs(A.log.skewness) <= 1.0
+A.log <- as.data.frame(A.log[, A.filter])
+dim(A.log)
+```
+
+# Principal Component Analysis
+
+```{r PCA}
+# I pre-calculate the covariance matrix to prevent princomp() from complaining
+# that there are not enough observations.
+A.log.covariance <- cov.wt(A.log)
+A.pca <- princomp(A.log, covmat = A.log.covariance, scores = TRUE)
+```
+
+Now, I can use the scores of the isolines on a subset of the principal components
+as the abundance data in an RDA. The question is how many components to use, always
+less than 24.
+
+# Covariate: sequencing run
+
+The sequencing run is a sample's feature, not an isoline's. However, it has a
+batch effect in microbiome composition. To remove such technical effect, I create
+below a vector with the proportion of samples from the second batch in each isoline.
+Most isolines belong entirely to one batch. Only three isolines differ in the proportion
+of batch 2 samples between early and late time points. To simplify, I will consider
+only the overall (not age-specific) proportion of second batch samples per isoline.
+
+```{r batchEffect}
+batch <- sapply(split(SampleData, SampleData$isoline),
+                function(x) sum(x$seqrun == 2) / length(x$seqrun))
+# To make sure the order is the same as in abundance data:
+batch <- batch[row.names(A)]
+```
+
+# Life history traits
+
+First, I standardize the variables.
+
+```{r LH}
+LH <- apply(LH, 2, function(x) (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE))
+pairs(LH)
+```
+
+Now, I need to impute the two missing values of `ActuarlialB`. A simple search online
+tells me that the preferred option is to use multiple imputed values, to get a sense of
+the uncertainty in the imputation. The function `mice` from the `MICE` package generates
+a set of imputations. Let's run the RDA for the first of them, that I extract with the
+`complete` function.
+
+```{r imputation, message=FALSE}
+LH.imp <- mice(LH, m=10)
+LH.imp.1 <- complete(LH.imp, 1)
+LH.imp.1 <- LH.imp.1[row.names(A), ]
+```
+
+# Redundancy  analysis
+
+I use first one imputation to run a complete analysis. Once I get a clear idea of
+what results we are most interested in, I can loop over the several imputations
+suggested by `mice` and summarize the alternative results.
+
+Recall that the `rda()` function from the `vegan` package expects the left hand side
+of the input formula (or the `X` matrix) to be community composition data (species
+abundances), because most ecologists seem interested in explaining composition with
+environmental data, instead of using composition data to explain something else.
+That is why it will list the life-history traits under the *species* label.
+
+Using the `batch` as a *condition*, I am effectively applying what they call **partial**
+redudancy analysis (pRDA). The problem with this approach is that the *R2 adjusted*
+cannot be computed.
+
+At this point, I want to use the same life-history traits that Pau Carazo used
+to run a PCA previously, because they are very well selected and yielded reasonable
+results. The variables are six: early climbing speed (`CSearly`), climbing speed
+slope with age (`CSSlope`), early reproductive fitness (`EarlyRS`), reproductive
+senescence (`Rsen`), average life span (`AvLF`), and acceleration of mortality rate
+or $\beta$ component of a Gompertz fit on survival curve (`ActuarialB`).
+
+```{r rda1}
+interesting <- c('CSearly', 'CSSlope', 'EarlyRS', 'Rsen', 'AvLF', 'ActuarialB')
+RDA0 <- rda(LH.imp.1[, interesting] ~ 1 + Condition(batch),
+            data = as.data.frame(A.pca$scores[,1:5]), scale=FALSE)
+RDA5 <- rda(LH.imp.1[, interesting] ~ . + Condition(batch),
+            data = as.data.frame(A.pca$scores[,1:5]), scale=FALSE)
+```
+
+```{r biplots, fig.width=10, fig.height=10}
+par(mfrow=c(2,2))
+  plot(RDA5, choices=c(1,2), display=c('sp','bp'), scaling=2)
+  plot(RDA5, choices=c(3,2), display=c('sp','bp'), scaling=2)
+  plot(0, type='n', axes=FALSE, ann=FALSE)
+  plot(RDA5, choices=c(3,1), display=c('sp','bp'), scaling=2)
+par(mfrow=c(1,1))
+```

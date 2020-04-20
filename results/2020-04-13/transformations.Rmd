@@ -1,0 +1,149 @@
+---
+title: "Transformations"
+author: "J. Ignacio Lucas Lledó"
+date: "19/4/2020"
+output: html_document
+bibliography: 'RDA.bib'
+---
+
+```{r setup, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(e1071)
+library(Biostrings)
+library(tidyr)
+library(ggplot2)
+library(plyr)
+load('../2020-02-11/taxonomy.RData')
+```
+
+Here, I want to evaluate different transformations of abundance data, with the main
+goal of reducing skewness. For a principal component analysis (PCA), it is not strictly
+required to have multinormality, but skewness should be avoided [@Legendre2012, p. 411].
+
+Below I prepare the two amplicon abundance matrices, `EA` and `LA`, for early and late
+abundances respectively. The amplicons (columns) are given a short name, and replicates
+of the same isoline are added, so that only 24 rows are left.
+
+```{r data}
+# I use the taxa matrix to name amplicons, to be consistent with previous scripts.
+dna <- DNAStringSet(row.names(taxa))
+names(dna) <- sprintf("A%04i", seq(dim(taxa)[1]))
+row.names(taxa)        <- names(dna)[match(row.names(taxa), dna)] 
+colnames(SeqTabNoChim) <- names(dna)[match(colnames(SeqTabNoChim), dna)]
+SampleData <- data.frame(
+  age = factor(substr(row.names(SeqTabNoChim), 1, 1), levels=c('E','L'), labels=c('Early','Late')),
+  isoline = factor(stringr::str_extract(rownames(SeqTabNoChim), "[[:digit:]]+"),
+                   levels=as.character(c(6,10,11,12,14,15,17,19,20,22,23,24,25,26,27,28,29,30,31,33,35,36,38,39)),
+                   ordered=FALSE),
+  replicate = gsub("([EL][[:digit:]]+|.fastq.gz)", "", rownames(SeqTabNoChim))
+)
+# Not using seqrun here.
+
+row.names(SampleData) <- row.names(SeqTabNoChim)
+
+isEarly <- SampleData$age == 'Early'
+isLate  <- SampleData$age == 'Late'
+EarlyAbundance <- SeqTabNoChim[isEarly,]
+LateAbundance  <- SeqTabNoChim[isLate,]
+EarlyIsoline <- SampleData[isEarly, 'isoline']
+LateIsoline  <- SampleData[isLate,  'isoline']
+# I found it impossible to do the following with plyr:
+EA <- do.call(rbind, lapply(split(as.data.frame(EarlyAbundance), EarlyIsoline), colSums))
+LA <- do.call(rbind, lapply(split(as.data.frame(LateAbundance),  LateIsoline),  colSums))
+rm(EarlyAbundance, LateAbundance, EarlyIsoline, LateIsoline, isEarly, isLate, SeqTabNoChim)
+```
+
+Absolute abundances must be turned into relative abundances. Otherwise, abundances are not
+dimensionally homogeneous across isolines, because of varying sequencing efforts. Then, I
+can use prevalence and average abundance to filter amplicons. Removing the rarest amplicons
+does not change the distribution of relative abundances of the remaining amplicons across
+isolines, but may eliminate some of the most skewed amplicons.
+
+```{r relative}
+EA.prop <- t(apply(EA, 1, function(x) x / sum(x)))
+LA.prop <- t(apply(LA, 1, function(x) x / sum(x)))
+
+AbundanceSummary <- data.frame(
+  EA.meanProp = apply(EA.prop, 2, mean),
+  LA.meanProp = apply(LA.prop, 2, mean),
+  EA.prevalence = colSums(EA > 0),
+  LA.prevalence = colSums(LA > 0)
+)
+
+EA.filter <- AbundanceSummary$EA.meanProp >= 5.0e-5 & AbundanceSummary$EA.prevalence >= 5
+LA.filter <- AbundanceSummary$LA.meanProp >= 5.0e-5 & AbundanceSummary$LA.prevalence >= 5
+
+EA.high <- EA.prop[,EA.filter]
+LA.high <- LA.prop[,LA.filter]
+
+colnames(EA.high) <- paste0('E', colnames(EA.high))
+colnames(LA.high) <- paste0('L', colnames(LA.high))
+A <- cbind(EA.high, LA.high)
+
+Skew <- data.frame(Amplicon   = substr(colnames(A), 2, 6),
+                   Age        = substr(colnames(A), 1, 1),
+                   meanProp   = NA,
+                   Prevalence = NA,
+                   Relative   = apply(A, 2, skewness),
+                   stringsAsFactors = FALSE)
+Skew[Skew$Age == 'E', 'meanProp'] <- AbundanceSummary[Skew[Skew$Age == 'E','Amplicon'], 'EA.meanProp']
+Skew[Skew$Age == 'L', 'meanProp'] <- AbundanceSummary[Skew[Skew$Age == 'L','Amplicon'], 'LA.meanProp']
+Skew[Skew$Age == 'E', 'Prevalence'] <- AbundanceSummary[Skew[Skew$Age == 'E', 'Amplicon'], 'EA.prevalence']
+Skew[Skew$Age == 'L', 'Prevalence'] <- AbundanceSummary[Skew[Skew$Age == 'L', 'Amplicon'], 'LA.prevalence']
+```
+
+The metric chi-square transformation was one of the transformations suggested by
+@Legendre2001 that produced some interesting non-Euclidean distances among original
+vectors when calculating the Euclidean distances among transformed vectors. The reasons
+to use such non-Euclidean distances I think had more to do with the double-zero
+problem than with skewness. Actually, the metric chi-square transformation does not
+reduce the skewness at all. What I need are non-linear transformations applied separately
+to each amplicon's relative abundances.
+
+```{r basicTransforms}
+A.sqrt <- sqrt(A)
+A.cube <- A ^ (1/3)
+A.logA <- log10(A + 1.0e-4)
+A.logB <- log10(A + 1.0e-5)
+A.logC <- log10(A + 1.0e-6)
+A.logD <- log10(A + 1.0e-7)
+A.logE <- log10(A + 1.0e-8)
+A.logF <- log10(A + 1.0e-9)
+
+Skew$Sqrt <- apply(A.sqrt, 2, skewness)
+Skew$Cube <- apply(A.cube, 2, skewness)
+Skew$LogA <- apply(A.logA, 2, skewness)
+Skew$LogB <- apply(A.logB, 2, skewness)
+Skew$LogC <- apply(A.logC, 2, skewness)
+Skew$LogD <- apply(A.logD, 2, skewness)
+Skew$LogE <- apply(A.logE, 2, skewness)
+Skew$LogF <- apply(A.logF, 2, skewness)
+
+SkewLong <- pivot_longer(Skew, cols=5:13, names_to='Transform', values_to='Skewness')
+SkewLong$Transform <- factor(SkewLong$Transform,
+                             levels=c('Relative','Sqrt','Cube','LogA','LogB','LogC','LogD','LogE','LogF'),
+                             ordered = TRUE)
+ggplot(SkewLong, aes(x=Transform, y=Skewness)) + geom_boxplot()
+```
+
+The logarithmic transformation with an added constant of 1e-6 successfully reduces
+the skewness for most amplions, but makes some amplicons much more (left) skewed
+than they were before. Those are relatively prevalent amplicons, which did not even
+require much of a transformation in the first place.
+
+Here I have applied the same basic transformation to all descriptors, because all
+of them are the same kind of data, and it makes interpretation easier. It is also
+possible to apply a different transformation (or none) to different amplicons. It
+could even make biological sense that some amplicons affect some life-history traits
+in a linear fashion, while other have an exponential effect. However, I have no
+*a priori* reason to treat different amplicons differently. After transformation,
+only a few become too negatively skewed. Even though they are among the most abundant
+amplicons, not all the abundant amplicons are negatively affected by the logarithmic
+transformation. I think the most reasonable option is to remove from the analysis
+the amplicons the abundance distribution of which are too skewed after transformation. 
+Setting the thresholds at -1 and 1 would leave 434 amplicons in early life, and 318
+in late life. 
+
+```{r sessionInfo}
+sessionInfo()
+```

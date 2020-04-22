@@ -1,0 +1,82 @@
+---
+title: "Interpretation of RDA results"
+author: "J. Ignacio Lucas Lledó"
+date: "21/4/2020"
+output: html_document
+bibliography: interpretation.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(mice)
+library(ggplot2)
+library(vegan)
+load('../2020-04-13/RDA.RData')
+ls()
+```
+
+Recall the contents of the variables just imported from `2020-04-13`:
+
+* `A` is the relative abundances of 614 amplicons in early life, and 418 amplicons
+late in life. Columns are amplicons $\times$ age combinations, and rows correspond
+to the 24 isolines with microbiome data. Only amplicons present in at least 5 isolines,
+and with an average relative frequency of at least 5.0e-5 are included.
+* `A.log` are the log transformed relative abundances. The logarithmic transformation
+proved useful to reduce the skewness of abundance distributions across isolines.
+Amplicons the abundance of which was still too skewed were removed, leaving 434
+amplicons early and 318 amplicons late in life.
+* `A.pca` is the principal component analysis of `A.log`. Because it is based on only
+24 observations, only 23 eigenvalues are positive, the rest being zero.
+* `batch` is a vector indicating the proportion of samples from each isoline processed
+in the second (of two) batch. Used to account for technical variation.
+* `LH` is the complete matrix of life-history traits for 29 isolines, including some
+for which we don't have microbiome data.
+* `LH.imp` is the object that holds the 10 imputations of the 2 missing values in
+variable `ActuarialB`.
+
+```{r}
+barplot(cumsum(A.pca$sdev^2)[1:24] / sum(A.pca$sdev^2),
+        main = 'PCA of log-transformed relative amplicon abundances',
+        ylab = 'Accumulated portion of variance')
+# LH.all is a list of LH matrices with imputed values.
+LH.all <- complete(LH.imp, action='all')
+validIsolines  <- row.names(A)
+validVariables <- c('CSearly', 'CSSlope', 'EarlyRS', 'Rsen', 'AvLF', 'ActuarialB')
+LH.all <- lapply(LH.all, function(x, f1=validIsolines, f2=validVariables) x[f1, f2])
+```
+
+The RDA analysis could take up to 22 components from the `A.pca`, because I also
+include the batch effect. All together, 23: one less than the number of observations.
+However, when testing for significance of the model, it seems that I need some degrees
+of freedom, and the permutation test does not produce a *p* value unless there are
+less than 22 components. In any case, the `rda()` function will only produces 6
+eigenvectors, because there are 6 variables left in the matrix of life-history traits.
+
+So, the question is what components of the variation in amplicon abundances carry any
+correlation signal with life-history variables. Recall that PCA components are ordered
+by the amount of variance they represent, which does not have to coincide with the amount
+of correlation. Thus, any component could be correlated with life-history traits.
+
+If we include all the components together, and test the global significance of the
+model, the result is quite negative:
+
+```{r globalTest}
+RDA21 <- lapply(LH.all, function(lh) rda(lh ~ . + Condition(batch),
+                                         data = as.data.frame(A.pca$scores[,1:21])))
+RDA21.anova <- lapply(RDA21, anova)
+RDA21.anova[[1]]
+sapply(RDA21.anova, function(x) x$'Pr(>F)'[1])
+```
+
+The *p* values from all imputed data sets are non-significant. We should conclude
+that there is no significant correlation (that we can detect) between gut microbiome
+composition and life-history traits. @Blanchet2008 warn any results we get beyond
+this point are bound to be false positives.
+
+Well, but let's not stop the fun here. Keeping the warning in mind, let's see what
+a positive result would look like.
+
+```{r postTruth}
+
+```
+

@@ -6,6 +6,23 @@ life cycle. We sequenced 16S rRNA gene amplicons and we are analyzing them with 
 
 ------------------------------------------------------------------------------------
 
+## 2020-04-21
+Full exploration of the RDA results, including all imputed datasets.
+
+
+## 2020-04-13
+Upon realization that RDA cannot use all the amplicons' abundances, I resort to
+reducing the dimensionality of the dataset with PCA, and then use a subset of
+the principal components as explanatory variables in RDA. In order to keep the
+two isolines with missing values in one of the interesting life-history traits,
+I use multiple imputations. Preliminar results suggest there is not much variance
+in life-history traits that can be explained by variation in microbiome composition.
+
+See the report [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-04-13/RDA.html)
+About how I chose the logarithmic transformation of relative abundance data, see
+[this](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-04-13/transformations.html)
+
+
 ## 2020-03-25
 Detailed ordination analysis. Here I learned about ordination analysis. I tested different
 distance measures to represent the variation among samples in two dimensions. I confirm

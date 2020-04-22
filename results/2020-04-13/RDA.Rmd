@@ -11,16 +11,13 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r setup2, warning=FALSE, message=FALSE}
-#library(phyloseq)
 library(ggplot2)
 library(gridExtra)
-#library(ape)
 library(vegan)
 library(Biostrings)
 library(plyr)
 library(e1071)
 library(mice)
- #load('../2020-02-27/ps.RData')
 load('../2020-02-11/taxonomy.RData')
 LH <- read.table('../../data/LifeHistoryVar.txt', header=TRUE, row.names=1)
 ls()
@@ -75,7 +72,7 @@ multiple regressions involving the variables directly.
 However, CCorA has a different problem. Because of the way canonical correlations
 are computed, the covariance matrices of **X** and **Y** must be invertible. When
 there are fewer observations than variables, the sample covariance matrix is not
-full rank [@Lagrange2012, p. 138], and therefore it is not invertible. I suspect
+full rank [@Legendre2012, p. 138], and therefore it is not invertible. I suspect
 there should be ways to run CCorA that do not depend on the inversion of sample
 covariance matrices. But I don't know of any such implementation.
 
@@ -89,12 +86,12 @@ not necessarily most of the correlation. This approach will only be successful i
 correlation signal is among the most variable amplicons, to be picked by the reduced
 number of dimensions. Even asuming that the existing correlations involve amplicons
 variable enough for that variation to be included in the first few axes of a PCA, an
-important question is how many principal components we should use in the RDA. It would
-be tempting to use as many as possible to make sure that any correlation signal is still
+important question is how many principal components we should use in the RDA. It is
+tempting to use as many as possible to make sure that any correlation signal is still
 present. But, including too many components would very easily generate spurious, false
 positive correlations, as explained in @Song2016. This is a model-selection problem,
 and it is related to the question of how many correlated signals there are [@Song2016].
-It seems reasonable to assume that the number of correlated sigas is small, even
+It seems reasonable to assume that the number of correlated signals is small, even
 compared with the number of isolines.
 
 A PCA would be adequate, in my view, despite of the warnings usually raised in ecological
@@ -265,15 +262,23 @@ LH <- apply(LH, 2, function(x) (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE))
 pairs(LH)
 ```
 
+The isoline with a noticeable outlier in `F1quality` was not included in the gut microbiome
+study, and therefore will be dropped later. Then the distributions of the interesting
+variables will be much more acceptable.
+
 Now, I need to impute the two missing values of `ActuarlialB`. A simple search online
 tells me that the preferred option is to use multiple imputed values, to get a sense of
 the uncertainty in the imputation. The function `mice` from the `MICE` package generates
 a set of imputations. Let's run the RDA for the first of them, that I extract with the
 `complete` function.
 
-```{r imputation, message=FALSE}
+I use the complete dataset of life-history traits to impute the two missing values, and
+then remove the isolines (rows) for which we don't have microbiome data.
+
+```{r imputation, message=FALSE, warning=FALSE}
 LH.imp <- mice(LH, m=10)
 LH.imp.1 <- complete(LH.imp, 1)
+row.names(LH.imp.1) <- row.names(LH)
 LH.imp.1 <- LH.imp.1[row.names(A), ]
 ```
 
@@ -302,7 +307,7 @@ or $\beta$ component of a Gompertz fit on survival curve (`ActuarialB`).
 
 ```{r rda1}
 interesting <- c('CSearly', 'CSSlope', 'EarlyRS', 'Rsen', 'AvLF', 'ActuarialB')
-RDA0 <- rda(LH.imp.1[, interesting] ~ 1 + Condition(batch),
+RDA0 <- rda(LH.imp.1[, interesting] ~ Condition(batch),
             data = as.data.frame(A.pca$scores[,1:5]), scale=FALSE)
 RDA5 <- rda(LH.imp.1[, interesting] ~ . + Condition(batch),
             data = as.data.frame(A.pca$scores[,1:5]), scale=FALSE)
@@ -315,4 +320,23 @@ par(mfrow=c(2,2))
   plot(0, type='n', axes=FALSE, ann=FALSE)
   plot(RDA5, choices=c(3,1), display=c('sp','bp'), scaling=2)
 par(mfrow=c(1,1))
+```
+
+This is just an example. I used one possible imputation, and I decided to include 5
+components from the PCA on amplicon abundance data. Note that I fitted two models,
+one with 5 components and the other with none. I can compare them, to run a global
+test, as recommended by @Blanchet2008:
+
+```{r globalTest}
+anova(RDA0, RDA5)
+```
+
+According to this test, the variation along the 5 principal components in amplicon
+relative abundances among isolines does not really help explain the life-history
+traits' variation. Before taking this result as definitive, I will save the data,
+close this document and move to a different folder.
+
+```{r sessionInfo}
+save(A, A.log, A.pca, batch, LH, LH.imp, taxa, file = 'RDA.RData')
+sessionInfo()
 ```

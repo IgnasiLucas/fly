@@ -6,6 +6,8 @@ output: html_document
 bibliography: interpretation.bib
 ---
 
+# The data
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(mice)
@@ -35,7 +37,7 @@ for which we don't have microbiome data.
 variable `ActuarialB`.
 
 ```{r}
-barplot(cumsum(A.pca$sdev^2)[1:24] / sum(A.pca$sdev^2),
+barplot(cumsum(eigenvals(A.pca))[1:24] / sum(eigenvals(A.pca)),
         main = 'PCA of log-transformed relative amplicon abundances',
         ylab = 'Accumulated portion of variance')
 # LH.all is a list of LH matrices with imputed values.
@@ -44,6 +46,8 @@ validIsolines  <- row.names(A)
 validVariables <- c('CSearly', 'CSSlope', 'EarlyRS', 'Rsen', 'AvLF', 'ActuarialB')
 LH.all <- lapply(LH.all, function(x, f1=validIsolines, f2=validVariables) x[f1, f2])
 ```
+
+# Global test
 
 The RDA analysis could take up to 22 components from the `A.pca`, because I also
 include the batch effect. All together, 23: one less than the number of observations.
@@ -64,7 +68,9 @@ model, the result is quite negative:
 RDA21 <- lapply(LH.all, function(lh) rda(lh ~ . + Condition(batch),
                                          data = as.data.frame(A.pca$scores[,1:21])))
 RDA21.anova <- lapply(RDA21, anova)
+# This is the result for the first imputation:
 RDA21.anova[[1]]
+# And this, all the p values from all imputations.
 sapply(RDA21.anova, function(x) x$'Pr(>F)'[1])
 ```
 
@@ -73,10 +79,124 @@ that there is no significant correlation (that we can detect) between gut microb
 composition and life-history traits. @Blanchet2008 warn any results we get beyond
 this point are bound to be false positives.
 
+# "Post-truth" analysis
+
 Well, but let's not stop the fun here. Keeping the warning in mind, let's see what
-a positive result would look like.
+a positive result would look like. The function `ordiR2step()` in the `vegan` package
+sequentially adds terms to a model, as long as they are significant, and it seems to
+implement the recommendations by @Blanchet2008 to avoid false positives. However,
+that function is not supposed to be valid for partial ordinations, like ours, because
+the adjusted $R^2$ "cannot be calculated". For some reason, both `ordiR2step()` and
+`RsquareAdj()` run without a warning on our rda objects. In any case, I will use
+the alternative, `ordistep()`, which can make both forward and backward steps.
 
-```{r postTruth}
-
+```{r postTruth, message=FALSE}
+# Starting point: a model without abundance components.
+RDA0 <- lapply(LH.all, function(lh) rda(lh ~ Condition(batch),
+                                        data = as.data.frame(A.pca$scores[,1:21])))
+RDA  <- lapply(RDA0, function(x) ordistep(x, RDA21[[1]], Pin=0.1, Pout=0.15, steps=100, trace=FALSE))
+lapply(RDA, function(x) x$terms[[3]])
 ```
 
+The different imputations produced different models. All them include
+component 14. And components 1, 6, 7 and 21 all appear more than once.
+I would build two models, based on this information: the most conservative
+one with only component 14, and the most optimistic with all 5 components.
+
+```{r moreModels}
+RDA1 <- lapply(LH.all, function(lh) rda(lh ~ Comp.14 + Condition(batch),
+                                        data = as.data.frame(A.pca$scores[,1:21])))
+RDA5 <- lapply(LH.all, function(lh) rda(lh ~ Comp.14 + Comp.6 + Comp.7 + Comp.1 + Comp.21 + Condition(batch),
+                                        data = as.data.frame(A.pca$scores[,1:21])))
+```
+
+# The minimum model: Component 14
+
+If I understood well, when using only one predictor (`Comp.14` in `RDA1`)
+in redundancy analysis, we are looking for the direction in the space of
+the response variables that is most correlated with that predictor. A single
+eigenvalue is produced, that in our case is (on average across imputations):
+`r mean(sapply(RDA1, function(x) eigenvals(x)[1]))`, and represents about
+`r 100 * mean(sapply(RDA1, function(x) eigenvals(x)[1]) / sapply(RDA1, function(x) sum(eigenvals(x))))`
+% of the variance in life-history traits.
+
+It seems to me that using only one component greatly facilitates the interpretation,
+even though I'm not sure we can call this *multivariate* any more. It is just
+a series of simple linear regressions of 6 response variables against the same
+independent variable. Not very sofisticated, eh?
+
+Anyways, how is this component related to life-history traits? Below I average the
+"species" scores of the 10 imputations in `RDA1`. Recall that in `vegan` the
+matrix of response variables typically represent species abundances.
+
+```{r RDA1scores}
+# Just discovered the very useful function Reduce().
+Reduce('+', lapply(RDA1, function(x) scores(x, choices=1, display='sp'))) / 10
+```
+
+We can look at the amount of variance in each life-history variable explained
+by component 14 of the amplicon abundances:
+
+```{r goodnessLH}
+Reduce('+', lapply(RDA1, goodness)) / 10
+```
+
+Keeping in mind that these may be overestimates, it is interesting to see that
+gut microbiome seems to affect climbing speed and reproductive senescence much
+more than early reproductive success or life span.
+
+We cannot see a biplot, because it's univariate at this point. 
+
+# Taxonomy
+
+Once we know how much component 14 affects life-history traits, it's time to
+turn our attention to the meaning of that component. This is a histogram of its
+loadings on the several amplicons:
+
+```{r loadings}
+hist(A.pca$loadings[,14])
+```
+
+The contribution of most amplicons to component 14 is small. These are
+the 21 amplicons with the most extreme loadings in component 14:
+
+```{r extremeLoadings}
+A14max <- A.pca$loadings[order(abs(A.pca$loadings[,14]), decreasing=TRUE)[1:21], 14, drop=FALSE]
+A14max
+```
+
+They include both early and late life abundances. Let's add some information.
+
+```{r taxonomy}
+A14max <- data.frame(Loading14 = A14max[,1])
+A14max$age <- factor('Early', levels=c('Early', 'Late'))
+A14max[startsWith(row.names(A14max), 'L'), 'age'] <- 'Late'
+A14max$amplicon <- substr(row.names(A14max), 2, 6)
+A14max$Phylum <- taxa[A14max$amplicon, 2]
+A14max$Class  <- taxa[A14max$amplicon, 3]
+A14max$Order  <- taxa[A14max$amplicon, 4]
+A14max$Family <- taxa[A14max$amplicon, 5]
+A14max$Genus  <- taxa[A14max$amplicon, 6]
+A14max$Species <- taxa[A14max$amplicon, 7]
+
+table(A14max$age, A14max$Genus)
+ggplot(data = A14max, mapping = aes(x = Genus, y = Loading14)) + 
+  geom_point() + facet_wrap(~age) + theme(axis.text.x = element_text(angle = 90))
+```
+
+Are these amplicons really affecting life-history traits? Let's run the
+RDA analysis directly with them, the 21 amplicons that most heavily load
+on component 14, which is the one most likely to affect life-history traits.
+
+
+```{r rda2}
+RDAmax <- lapply(LH.all, function(lh) rda(lh ~ . + Condition(batch),
+                                          data = A.log[, row.names(A14max)]))
+anova(RDAmax[[1]])
+RDA0 <- lapply(LH.all, function(lh) rda(lh ~ Condition(batch),
+                                           data = A.log[, row.names(A14max)]))
+RDA.amp <- lapply(RDA0, function(x) ordistep(x, RDAmax[[1]], Pin=0.1, Pout=0.15, steps=100, trace=FALSE))
+lapply(RDA.amp, function(x) x$terms[[3]])
+```
+
+The answer is negative.

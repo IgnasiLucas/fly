@@ -7,8 +7,27 @@ life cycle. We sequenced 16S rRNA gene amplicons and we are analyzing them with 
 ------------------------------------------------------------------------------------
 
 ## 2020-04-21
-Full exploration of the RDA results, including all imputed datasets.
+Full exploration of the RDA results, including all imputed datasets. The
+results are not positive. Only one principal component of log-transformed
+relative abundances is marginally significantly contributing to variation
+in life-history traits. But the amplicons that most heavily load on that
+component fail to explain any variation in life-history traits. If the
+marginally significant component is not a false positive, we can conclude
+that:
 
+* Gut microbiome composition may affect life-history traits, but not
+because of the effect of any singular species. The effect, if real,
+seems to be combination of taxa.
+* The life-history traits most likely to be influenced by gut microbiome
+are: the functional measures (climbing speed and its decline with age),
+and to some extent reproductive senescence. Neither the life-span nor
+the acceleration of mortality rate with age are much affected.
+
+You can see the report [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-04-21/interpretation.html)
+
+Some additional work can be done to better characterize the marginally
+significant component of amplicon abundances. Maybe some kind of enrichment
+analysis could shed some light.
 
 ## 2020-04-13
 Upon realization that RDA cannot use all the amplicons' abundances, I resort to

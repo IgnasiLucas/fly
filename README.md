@@ -56,7 +56,7 @@ dimensions.
 Here I also decide that a redundancy analysis is what we need to determine how and to
 what extent bacterial taxa in the gut microbiome affect variation of life-history traits.
 I just set up the data matrices and make the analysis run, without getting into the
-details.
+details. See the report [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-03-25/ordination.html)
 
 ## 2020-03-17
 Using DESeq2 package to test for different abundance between early and late

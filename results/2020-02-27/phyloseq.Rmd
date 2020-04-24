@@ -18,12 +18,47 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r setup2, message=FALSE}
 library(phyloseq)
 library(ggplot2)
+library(gridExtra)
 library(Biostrings)
 library(DECIPHER)
 library(phangorn)
 library(plyr)
 load(params$DATA)
 ls()
+```
+
+# Naming sequencies
+
+Above I loaded the taxonomy data, including the table of abundances (`SeqTabNoChim`)
+and the assigned taxonomy (`taxa`). I name all sequences with a taxonomy attribution.
+
+```{r naming}
+dna <- DNAStringSet(row.names(taxa))
+names(dna) <- sprintf("A%04i", seq(dim(taxa)[1]))
+row.names(taxa)        <- names(dna)[match(row.names(taxa), dna)] 
+colnames(SeqTabNoChim) <- names(dna)[match(colnames(SeqTabNoChim), dna)]
+```
+
+# Sample data
+
+```{r sampleData}
+SampleData <- data.frame(
+  age = factor(substr(rownames(SeqTabNoChim), 1, 1), levels=c('E','L'), labels=c('Early','Late')),
+  isoline = factor(stringr::str_extract(rownames(SeqTabNoChim), "[[:digit:]]+"),
+                   levels=as.character(c(6,10,11,12,14,15,17,19,20,22,23,24,25,26,27,28,29,30,31,33,35,36,38,39)),
+                   ordered=TRUE),
+  replicate = gsub("([EL][[:digit:]]+|.fastq.gz)", "", rownames(SeqTabNoChim)),
+  seqrun = factor(1, levels=c(1,2))
+  #simpson = vegan::diversity(SeqTabClean, index='simpson', MARGIN=1),
+  #shannon = vegan::diversity(SeqTabClean, index='shannon', MARGIN=1)
+)
+row.names(SampleData) <- rownames(SeqTabNoChim)
+run2 <- paste(substring(SampleData$age, 1, 1),
+              SampleData$isoline,
+              SampleData$replicate,
+              '_R1.fastq.gz', sep='') %in% dir(params$RUN2)
+SampleData[run2, 'seqrun'] <- 2
+rm(run2)
 ```
 
 # Additional filtering
@@ -34,22 +69,36 @@ present, and sequences of unknown or unreliable Phylum have been removed
 I take a look at *prevalence* (number of samples a taxon is observed at
 least once), and its relationship with total abundance.
 
-```{r prevalence}
+```{r prevalence, warning=FALSE, message=FALSE}
 Prevalence <- data.frame(
+  Prev.Early = colSums(SeqTabNoChim[SampleData$age %in% 'Early',] > 0),
+  Prev.Late  = colSums(SeqTabNoChim[SampleData$age %in% 'Late',] > 0),
+  Abun.Early = colSums(SeqTabNoChim[SampleData$age %in% 'Early',]),
+  Abun.Late  = colSums(SeqTabNoChim[SampleData$age %in% 'Late',]),
   prevalence = colSums(SeqTabNoChim > 0),   # taxa are columns
   abundance  = colSums(SeqTabNoChim),
   Phylum     = factor(taxa[colnames(SeqTabNoChim), 'Phylum']),
   Order      = factor(taxa[colnames(SeqTabNoChim), 'Order'])
 )
 Proportions <- apply(SeqTabNoChim, 1, function(x) x/sum(x))
-dim(Proportions)
-table(colSums(Proportions))  # Just checking: taxa are in rows now.
-Prevalence$meanProp <- apply(Proportions, 1, mean) 
+Prevalence$meanProp <- apply(Proportions, 1, mean)
+Prevalence$meanPropEarly <- apply(Proportions[, SampleData$age %in% 'Early'], 1, mean)
+Prevalence$meanPropLate  <- apply(Proportions[, SampleData$age %in% 'Late'],  1, mean)
 ggplot(Prevalence, aes(x=meanProp, y=prevalence)) +
   geom_point(size=0.5) + scale_x_log10() + facet_wrap(~Phylum)
-ggplot(Prevalence[Prevalence$Phylum=='Proteobacteria',], aes(x=meanProp, y=prevalence, color=Order)) +
-  geom_point() + scale_x_log10()
+#ggplot(Prevalence[Prevalence$Phylum=='Proteobacteria',], aes(x=meanProp, y=prevalence, color=Order)) +
+#  geom_point() + scale_x_log10()
+ggplot(Prevalence[Prevalence$Phylum=='Proteobacteria',], aes(x=meanPropEarly, y=Prev.Early, color=Order)) +
+  geom_point() + scale_x_log10() + ggtitle('Proteobacteria in early samples')
+ggplot(Prevalence[Prevalence$Phylum=='Proteobacteria',], aes(x=meanPropLate, y=Prev.Late, color=Order)) +
+  geom_point() + scale_x_log10() + ggtitle('Proteobacteria in late samples')
+ggplot(Prevalence, aes(x=meanPropEarly, y=meanPropLate)) + geom_point() +
+  scale_x_log10() + scale_y_log10() + geom_abline(slope=1, intercept=0, color='red')
 ```
+
+In the last plot, I see among the most abundant amplicons, many that keep the same
+relative abundance in early and late times, some that are more abundant late than
+early, and some that are more abundant early.
 
 In the [preprocessing tutorial](https://joey711.github.io/phyloseq/preprocess.html)
 some filters are suggested that can be applied to a `phyloseq` object. Here,
@@ -59,48 +108,25 @@ alignment and phylogenetic tree reconstruction steps will be faster.
 [@Callahan2016] suggests to filter by prevalence. They remove taxa that are not
 present in at least 5% of samples. However, the [preprocessing tutorial](https://joey711.github.io/phyloseq/preprocess.html)
 suggests to filter by mean relative abundance, using $10^{-5}$ as the threshold.
-I think it is more reasonable to filter by relative abundance than by
-prevalence. I remove taxa because they don't contribute much to any sample's
-microbiome, not of their absence from a number of samples.
+
+On a first run, I imposed the thresholds on global measures of mean proportion and
+prevalence. However, I realize that early and late samples should be allowed to
+have different compositions. I use now a filter that respects the independence of
+early and late samples.
 
 ```{r filter}
-filter <- Prevalence$meanProp >= 1.0e-05 & Prevalence$prevalence > 12
+filter <- (Prevalence$meanPropEarly >= 1.0e-05 | Prevalence$meanPropLate >= 1.0e-05) & 
+  (Prevalence$Prev.Early > 10 | Prevalence$Prev.Late > 10)
+AmpFilt <- sort(colnames(SeqTabNoChim)[filter])
 SeqTabClean <- SeqTabNoChim[,filter]
 dim(SeqTabClean)
 ```
 
-Another way of filtering is to use the original counts. In the Phyloseq Preprocessing tutorial they suggest
-removing taxa that has not been counted at least 4 times in at least 20% of samples. In
-our data set that would leave `r sum(apply(SeqTabClean, 2, function(x){sum(x>3)}) > (0.2*177))`
-taxa. I may create such a reduced subset of the data later, after creating the
-phyloseq object, but I find that filter too aggressive.
-
 # Alignment and tree
 I had aligned them before, on `2019-12-12`. But for the
 sake of clarity, I align them here as well, in order to create a phylogenetic
-tree and include that information in the `phyloseq` object.
-
-The abundance table, `SeqTabClean`, uses the DNA sequence itself as names of
-columns. It is more convenient to use a shorter name, and to store the sequences
-in a separate object, indexed by the same names. See the [dada2 tutorial](https://benjjneb.github.io/dada2/tutorial.html).
-
-```{r renaming}
-dna <- DNAStringSet(colnames(SeqTabClean))
-names(dna) <- sprintf("ASV%04i", seq(dim(SeqTabClean)[2]))
-
-# Changing column names is delicate. I need to make sure I give columns
-# the exact same names their sequences have now in the 'dna' object. I could
-# use this:
-#    colnames(SeqTabNoChim) <- sprintf("ASV%04i", seq(dim(SeqTabNoChim)[2]))
-# Because the order of sequences is preserved in 'dna'. But to be safer
-# against typos, and more explicit, I use the 'match()' function:
-
-colnames(SeqTabClean) <- names(dna)[match(colnames(SeqTabClean), dna)]
-taxaClean <- taxa[as.character(dna),]
-row.names(taxaClean)  <- names(dna)[match(row.names(taxaClean), dna)]
-PropClean <- Proportions[as.character(dna),]
-row.names(PropClean)  <- names(dna)[match(row.names(PropClean), dna)]
-```
+tree and include that information in the `phyloseq` object. I align only the
+filtered sequences.
 
 Below, I use conditional execution as a *home made* substitute for the
 `cache=TRUE` option, which does not seem to work well sometimes.
@@ -109,7 +135,7 @@ Below, I use conditional execution as a *home made* substitute for the
 if (file.exists('alignment.RData')) {
    load('alignment.RData')
 } else {
-   alignment <- AlignSeqs(RNAStringSet(dna))
+   alignment <- AlignSeqs(RNAStringSet(dna[AmpFilt]))
    BrowseSeqs(alignment, htmlFile='alignment.html', openURL=FALSE)
    save(alignment, file='alignment.RData')
    # Forces removal of tree upon update of alignment:
@@ -138,7 +164,7 @@ if (file.exists('fitGTR.RData')) {
    fitGTR <- update(fit, k=4, inv=0.2)
    fitGTR <- optim.pml(fitGTR, model="GTR", optInv=TRUE, optGamma=TRUE,
                       rearrangement = "stochastic", control = pml.control(trace = 0))
-   detach("package:phangorn", unload=TRUE)   # Don't know why I do this.
+   detach("package:phangorn", unload=TRUE)   # avoids name clashes.
    save(fitGTR, file='fitGTR.RData')
 }
 ```
@@ -150,28 +176,14 @@ corresponding to each library, where the three variables identifying the samples
 encoded, namely the sampling time (or fly *age*), the isoline, and the replicate.
 
 ```{r data}
-SampleData <- data.frame(
-  age = factor(substr(rownames(SeqTabClean), 1, 1), levels=c('E','L'), labels=c('Early','Late')),
-  isoline = factor(stringr::str_extract(rownames(SeqTabClean), "[[:digit:]]+"),
-                   levels=as.character(c(6,10,11,12,14,15,17,19,20,22,23,24,25,26,27,28,29,30,31,33,35,36,38,39)),
-                   ordered=TRUE),
-  replicate = gsub("([EL][[:digit:]]+|.fastq.gz)", "", rownames(SeqTabClean)),
-  seqrun = factor(1, levels=c(1,2)),
-  simpson = vegan::diversity(SeqTabClean, index='simpson', MARGIN=1),
-  shannon = vegan::diversity(SeqTabClean, index='shannon', MARGIN=1)
-)
-row.names(SampleData) <- rownames(SeqTabClean)
-run2 <- paste(substring(SampleData$age, 1, 1),
-              SampleData$isoline,
-              SampleData$replicate,
-              '_R1.fastq.gz', sep='') %in% dir(params$RUN2)
-SampleData[run2, 'seqrun'] <- 2
+SampleData$simpson <- vegan::diversity(SeqTabClean, index='simpson', MARGIN=1)
+SampleData$shannon <- vegan::diversity(SeqTabClean, index='shannon', MARGIN=1)
 
 ps <- phyloseq(otu_table(SeqTabClean, taxa_are_rows=FALSE), 
                sample_data(SampleData), 
-               tax_table(taxaClean),
+               tax_table(taxa[AmpFilt,]),
                phy_tree(fitGTR$tree))
-ps <- merge_phyloseq(ps, dna)
+ps <- merge_phyloseq(ps, dna[AmpFilt])
 ps
 plot_richness(ps, x="isoline", measures=c("Shannon", "Simpson"), color="age", shape="seqrun")
 ```
@@ -184,9 +196,9 @@ abundance, and not the proportions calculated on a subset of the
 original taxa.
 
 ```{r distance, message=FALSE, warning=FALSE}
-ps.prop <- phyloseq(otu_table(PropClean, taxa_are_rows=TRUE),
+ps.prop <- phyloseq(otu_table(Proportions[AmpFilt,], taxa_are_rows=TRUE),
                     sample_data(SampleData),
-                    tax_table(taxaClean),
+                    tax_table(taxa[AmpFilt,]),
                     phy_tree(fitGTR$tree))
 
 save(ps, ps.prop, file='ps.RData')
@@ -234,13 +246,13 @@ Note that here I use MDS, while the plot produced above was done using NMDS.
 ```{r distance1, fig.width=15, fig.height=15}
 dist_methods <- unlist(distanceMethodList)
 # in addition to designdist, I remove those that cause errors:
-dist_methods <- dist_methods[! names(dist_methods) %in% c('vegdist1', 'designdist')]
+dist_methods <- dist_methods[! names(dist_methods) %in% c('vegdist1', 'designdist', 'vegdist2', 'dist3')]
 plist <- vector("list", length(dist_methods))
 names(plist) <- dist_methods
 # Abundance should be integer, but standardized.
 total <- median(sample_sums(ps))
 standf <- function(x, t=total) round(t * (x / sum(x)))
-ps.used <- transform_sample_counts(ps.prop, standf, t=median(sample_sums(ps)))
+ps.used <- transform_sample_counts(ps, standf, t=median(sample_sums(ps)))
 #ps.used <- ps.clean2
 for( i in dist_methods ){
     # Calculate distance matrix
@@ -304,7 +316,9 @@ p <- p + geom_point(size=3, alpha=0.5)
 p <- p + ggtitle("MDS on a binary distance. Coloring by sequencing run")
 p
 ```
+
 # Rotation
+
 I found that the `recluster` package can rotate the coordinates of an MDS to make
 a line be horizontal. Ideally, the line would be a the boundary decision of a linear
 discriminant analysis. But I have not found a way to extract the linear expression
@@ -323,24 +337,26 @@ ggplot(BinaryMDS, aes(x=Rotated1, y=Rotated2, color=seqrun)) +
 ggplot(BinaryMDS, aes(x=Rotated1, y=Rotated2, color=age)) +
   geom_point(size=3, alpha=0.5)
 ```
+
 # Acetobacter/Lactobacillus ratio
 
 ```{r ratio}
-Lactobacillus <- as.character(dna) %in% row.names(taxa[taxa[,'Genus'] == 'Lactobacillus',])
-Acetobacter   <- as.character(dna) %in% row.names(taxa[taxa[,'Genus'] == 'Acetobacter',])
-LactoProp <- colSums(PropClean[Lactobacillus,])
-AcetoProp <- colSums(PropClean[Acetobacter,])
+Lactobacillus <- AmpFilt[AmpFilt %in% row.names(taxa[taxa[,'Genus'] %in% 'Lactobacillus',])]
+Acetobacter   <- AmpFilt[AmpFilt %in% row.names(taxa[taxa[,'Genus'] %in% 'Acetobacter',])]
+LactoProp <- colSums(Proportions[Lactobacillus,])
+AcetoProp <- colSums(Proportions[Acetobacter,])
 summary(LactoProp)
 summary(AcetoProp)
 SampleData$LactoAcetoRatio <- LactoProp / AcetoProp
 # It includes 0, but not Inf. 
 ggplot(SampleData, aes(x=age, y=LactoAcetoRatio)) + 
-  geom_boxplot() + scale_y_log10()
+  geom_boxplot(notch=TRUE) + scale_y_log10()
 ggplot(SampleData, aes(x=seqrun, y=LactoAcetoRatio)) +
-  geom_boxplot() + scale_y_log10()
+  geom_boxplot(notch=TRUE) + scale_y_log10()
 ```
 
 # Export data
+
 Here I produce a `csv` file with the `SampleData` dataframe, which includes
 Simpson and Shannon's diversity indices and the rotated coordinates of the
 MDS produced with the binary distance. The rotation is meant to make the MDS

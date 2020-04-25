@@ -6,6 +6,27 @@ life cycle. We sequenced 16S rRNA gene amplicons and we are analyzing them with 
 
 ------------------------------------------------------------------------------------
 
+## 2020-04-22
+After updating results from the differential abundance analysis (2020-03-17),
+which also required updating the phyloseq analysis (2020-02-27), I made sure to
+use the same amplicon names in all datasets, and could merge the differential
+abundance results with other results, like diversity measures, in order to
+have more information about the amplicons. The idea was to improve the RDA
+by providing better quality, less noisy information. For example, the diversity
+measures, which had not been included in the RDA on 2020-04-21. Here I
+compute Faith's phylogenetic diversity index, which turns out to be very
+different between early and late samples.
+
+Unfortunately, I have not been able to define, a priori, a set of variables
+based on amplicon abundances that can significantly explain variation in
+life-history traits through RDA. All models fail the first step, the global
+test. I can use the ordistep() function to let the algorithm pick the most
+relevant predictor variables, if I relax the significance threshold a bit.
+But I don't trust those results. In any case, even doing that, diversity
+does not come up as a significant variable.
+
+The report is [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-04-22/diversity.html)
+
 ## 2020-04-21
 Full exploration of the RDA results, including all imputed datasets. The
 results are not positive. Only one principal component of log-transformed

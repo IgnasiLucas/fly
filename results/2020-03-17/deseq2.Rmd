@@ -69,6 +69,8 @@ dim(ds)
 ds <- ds[mcols(ds)$betaConv, ]
 dim(ds)
 res <- results(ds, cooksCutoff = FALSE)
+sum(is.na(res$padj))
+res[is.na(res$padj),'padj'] <- 9.9999
 sigtab <- res[res$padj < 0.001, ]
 sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(ps)[rownames(sigtab), ], "matrix"))
 dim(sigtab)

@@ -1,0 +1,169 @@
+---
+title: "Summary of results of the analysis of gut microbiome data"
+author: "J. Ignacio Lucas Lledó"
+date: "25/4/2020"
+output:
+  pdf_document:
+    fig_caption: yes
+bibliography: "summary.bib"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+load('../2020-04-22/Diversity.RData')
+```
+
+# Pre-processing
+
+Sequence data from the gut microbiome came in two batches. In all there samples from
+24 isolines, and two time points considered *early* and *late* in life ages. There are
+between 2 and 4 replicates of each isoline $\times$ age combination. Early and late
+samples are balanced between the two batches. Most isolines got all their samples sequenced
+in one of the two batches, except isolines 22, 23, and 24.
+
+The sequencing center had already merged two forward and reverse reads from every sample,
+with overall statistics showing good quality data. The only issue with the data was an
+acute imbalance of sequencing effort among samples in the second sequencing batch. As a
+result, early samples from isolines 27 and 35 had a relatively small number of sequences
+(see figure \ref{fig:seqeff}).
+
+```{r imbalance, echo=FALSE, fig.cap="\\label{fig:seqeff}Sequencing effort per isoline and sequencing batch"}
+SampleData$SeqEff <- rowSums(Ar)
+ggplot(SampleData, aes(x=isoline, y=SeqEff, fill=age)) +
+  geom_bar(stat='identity') + facet_wrap(~seqrun) +
+  xlab('Isoline') + ylab('Number of sequences') + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+I used the package `dada2` [@Callahan2016] for *denoising*. This package implements
+algorithmns to infer the exact sequences of different amplicons present in a sample,
+to single nucleotide precision, despite sequencing errors. Thus, there is no need to
+cluster similar sequences together in *operational taxonomic units* of doubtful
+functional homogeneity. Instead, the unit of microbiome composition is the *amplicon
+sequence variant* (ASV). 
+
+The length distribution of ASVs was quite wide, most of its width occupied by noise
+coming from spurious hybridization of sequencing primers with nuclear DNA. After some
+manual BLAST searches, I retained only ASVs of lengths between 432 and 464. In all,
+there were `r dim(taxa)[1]` different ASVs left.
+
+See full report [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2019-12-12/denoising.html)
+
+# Taxonomic attribution
+
+The same package `dada2` allows for taxonomic attribution, based on public databases
+of RNA sequences with known taxonomy. I removed a few additional ASVs with missing high level
+taxonomic labels, or with spurious `Eurkaryotic` attribution (16S rRNA does not exist in
+Eukaryotes). Only `r sum(! is.na(taxa[,'Species']))` (`r round(sum(! is.na(taxa[,'Species']))/dim(taxa)[1], 3)` %)
+of ASVs got the species assigned. But `r round(sum(! is.na(taxa[,'Genus']))/dim(taxa)[1], 3)` got their genus assigned. 
+
+```{r taxonomy, include=FALSE, fig.cap="\\label{fig:taxonomy}Lowest taxonomic level attributed."}
+taxa <- as.data.frame(taxa)
+maxLevel <- c('Nothing', names(taxa))
+taxa$Level <- factor(maxLevel[rowSums(! is.na(taxa[,1:7])) + 1],
+                   levels = c('Nothing','Kingdom','Phylum','Class',
+                              'Order','Family','Genus','Species'),
+                   ordered=TRUE)
+ggplot(taxa, aes(x=1, fill=Level)) + geom_bar() + xlim(0,2) +
+  xlab('')
+```
+
+I did not check the quality of the taxonomic attribution. The whole report
+is available [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-02-11/taxonomy.html).
+
+# Exploratory analysis
+
+I run some exploratory analyses, including ordination plots, comparisons
+of diversity levels between early and late samples, or relationship between
+average proportion of an ASV in a sample and its prevalence among samples.
+These results can be checked [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-02-27/phyloseq.html), and [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-03-25/ordination.html).
+
+I was lucky to find a copy of *Numerical ecology* [@Legendre2012] avaiable online,
+and I took the chance to learn about ordination methods and multivariate statistics.
+I highly recommend the book. Know that it's the first time I use these methods, and
+I apologize if there are mistakes.
+
+My conclusions on the exploration of data are the following:
+
+* **There is a batch effect**. Some ordination methods sparate clearly samples
+sequenced in the first batch from those sequenced in the second. After
+talking with Zahida, I understand the sequencing run itself may not be the
+only source of variation, because samples sequenced later had also been
+processed later, with potentiall different room temperature, or whatever.
+Nothing to worry about, I think, but it's good to keep in mind.
+
+* **Microbiome composition changes with age**. In later analyses (see below),
+it becomes clear that some measures of diversity (not all) are lower in
+late microbiomes.
+
+# Differential abbundance
+
+To test for a difference in abundance between early and late
+samples requires specific packages, because we need to take into account
+the biological variation among replicates of the same isoline. There are
+thousands of ASVs and few replicates. The package I used is `DESeq2`
+[@Love2014], originaly designed for RNA-seq data. 
+
+Keeping false discovery rate below 0.001, I find `r dim(sigtab)[1]` ASVs
+with significantly different abundances between early and late samples. Figure
+\ref{fig:deseq2} shows their fold change, and how they are distributed
+taxonomically.
+
+```{r deseq, echo=FALSE, fig.cap="\\label{fig:deseq2}Fold change and taxonomic distribution of the amplicons with most differentiated abundances between early and late samples."}
+#scale_fill_discrete <- function(palname = "Set1", ...) {
+#    scale_fill_brewer(palette = palname, ...)
+#}
+# Phylum order
+x = tapply(sigtab$log2FoldChange, sigtab$Phylum, function(x) max(x))
+x = sort(x, TRUE)
+#sigtab$Phylum = factor(as.character(sigtab$Phylum), levels=names(x))
+# Genus order
+x = tapply(sigtab$log2FoldChange, sigtab$Genus, function(x) max(x))
+x = sort(x, TRUE)
+#sigtab$Genus = factor(as.character(sigtab$Genus), levels=names(x))
+ggplot(sigtab, aes(x=Genus, y=log2FoldChange, color=Phylum)) + geom_point(size=6) + 
+  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5))
+```
+
+Remarkably, ASVs from four different phyla and at least 15 genera reduce their
+abundances in late relative to early samples, while amplicons from only two
+genera increase their abundances. Some of these amplicons (maybe the Cyanobacteria
+and the Acetobacter with negative fold changes) could be false positives. But
+the plot suggests a reduction in diversity with age.
+
+# Redundancy analysis
+
+The redundancy analysis was motivated by Pau Carazo's joint analysis of life
+history data and abundance summary data. The summary data included diversity
+measures and ordination vectors from a multidimensional scaling (MDS). The
+MDS was based on a binary (presence/absence) distance measure among samples.
+That distance was selected because it separated well early from late samples,
+as well as samples from first and second batches. Even though there were some
+interesting correlations, it was impossible to interpret the ordination axes
+in terms of ASVs, because only a distance matrix and not the original abundances
+entered the algorithm.
+
+Redundancy analysis (RDA) seemed a good choice, because it is a multivariate method to
+explain the variance in a set of variables with another set of variables. But it
+has an important limitation: the number of explanatory variables cannot be larger
+than the number of observations. The high dimensionality problem is typical, and
+one way to deal with it is to run a PCA before the redundancy analysis [@Song2016].
+Reducing the dimensionality of abundance data by selecting the first few principal
+components would make interpretation difficult, but not impossible.
+
+The main issue with the RDA is that we are bound to find false positives if we
+do not test the global fit before believing the correlations that the RDA
+finds [@Blanchet2008]. My first attempts were naive: the abundance data, early
+and late in life, have a lot of variation that we do not expect to be correlated
+with life-history traits variation. The RDA looks for the axes of variation that
+maximize correlation, and it should not surprise us that it always finds something.
+
+In the most recent attempts, I tried to use more meaningful predictable variables.
+Zahida told me to use diversity measures, which I had forgotten before. I also
+summarized the amplicon abundances by genus, and even by class. I focused on the
+amplicons (and genera) with significantly different abundances between early and
+late. I used abundances only early, or only late... Nothing that I tried produced
+a significant global fit. The lowest p values I've seen are >0.11. You can see
+[here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-04-22/diversity.html) the full report of the latest attempt.
+
+# References

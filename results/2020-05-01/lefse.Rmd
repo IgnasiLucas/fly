@@ -86,7 +86,7 @@ write.table(lefsePerGenus, file = 'GeneraRelativeAbundances.tsv',
 
 # Results
 
-Lefse runs in Galaxy. Here there is a [link](http://huttenhower.sph.harvard.edu/galaxy/u/ignasilucas/h/2020-05-01lefseanalysis)
+Lefse runs in Galaxy [@Afgan2018]. Here there is a [link](http://huttenhower.sph.harvard.edu/galaxy/u/ignasilucas/h/2020-05-01lefseanalysis)
 to the session used to produce the results. I mostly applied default values for the linear
 discriminant analysis.
 
@@ -193,19 +193,34 @@ write.table(lefsePC3.genus, file = 'lefsePC3_genus.tsv', quote = FALSE,
             row.names = FALSE, col.names = TRUE, sep = '\t')
 ```
 
-# Lefse results for genus abundance data
+# Lefse results on *binarized* life-history components
 
-Neither binarized PC1 nor PC2 were characterized by any significant genus,
-according to Lefse. In contrast, binary PC3 of life-history traits does seem
-to be associated with some genera. Isolines with long lifespans and low
-reproductive senescence are enriched with *Ralstonia*, *Carnobacterium*,
-*Stenotrophomonas*, *Bacillus*, *Curvibacter*, *Escheirchia* or *Shigella*,
-*Pseudomonas*, *Serratia*, *Mangrovibacter*, *Corynebacterium 1*, *Massilia*
-and *Cutibacterium*. Excess of the always abundant *Acetobacter* seems
-associated with short lifespan and rapid reproductive senescence.
+Lefse did not find any genus significantly associated with any of the three
+first principal components of life-history traits. In the case of amplicons,
+only PC1 and PC3 seem to have some amplicons associated mostly with the low 
+levels.
 
-![](./LefsePC3_genus.png)
+The Galaxy session is visible [here](http://huttenhower.sph.harvard.edu/galaxy/u/ignasilucas/h/unnamed-history).
 
+![PC1](./LefsePC1_amplicons.png)
+
+![PC3](./LefsePC3_amplicons.png)
+
+```{r whatisit}
+PC1low <- c('A0108','A0121','A0128','A0126','A0131','A0140',
+            'A0150','A0152','A0144','A0166','A0171')
+PC3low <- c('A0207','A0229','A0252','A0254','A0257','A0269',
+            'A0264','A0261','A0260','A0281','A0282','A0128')
+PC3high <- 'A0076'
+
+Traits[PC1low,]
+Traits[PC3low,]
+Traits[PC3high,]
+```
+
+They all are different *Acetobacter* amplicons. It would not be dificult to
+show them in a phylogenetic tree of all *Acetobacter* amplicons, using the
+`picante` package.
 
 ```{r sessionInfo}
 sessionInfo()

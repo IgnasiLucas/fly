@@ -1,0 +1,102 @@
+---
+title: "Preparation of data for analysis with Lefse"
+author: "J. Ignacio Lucas Lledó"
+date: "1/5/2020"
+output: html_document
+bibliography: lefse.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+load('../2020-04-22/Diversity.RData')
+```
+
+Dr. Amparo Latorre suggested to use Lefse [@Segata2011] to find *biomarkers*
+for age (I think) among the amplicons. Lefse implements a linear discriminant
+analysis, which can be used to model a categorical variable with a set of
+quantitative descriptors [@Legendre2012, p. 616]. There are no categorical
+variables among the life-history traits. The only categorical variables we are
+using are the *age* (early or late in life), the sequencing batch, and the
+isoline. It may be interesting to find amplicons that correlate with any of
+these classifications.
+
+Because I am not using isolines's physiological information, I must keep the
+177 samples separate, instead of adding up counts from replicates. Thus, I need
+to filter amplicons only once, instead of filtering them early and late in life
+separately. This time, I will be less permissive: I realize abundances lower
+than $10^{-4}$ could easily be dominated by noise.
+
+```{r filtering}
+minProp <- 1.0e-04
+minPrev <- 5
+filter <- ((Traits$EA.meanProp >= minProp & 
+            Traits$LA.meanProp >= minProp) |
+           (Traits$EA.prevalence >= minPrev &
+            Traits$LA.prevalence >= minPrev))
+stopifnot(all.equal(rownames(Ar.prop), rownames(SampleData)))
+lefseData <- data.frame(
+  Age = SampleData$age,
+  Batch = SampleData$seqrun,
+  Isoline = SampleData$isoline
+)
+lefseData <- cbind(lefseData, Ar.prop[,filter])
+write.table(lefseData, file = 'AmpliconRelativeAbundances.tsv',
+            quote = FALSE, sep = '\t', row.names = FALSE,
+            col.names = TRUE)
+```
+
+I will also create a table with taxa, instead of amplicon, abundances.
+That is, I will add up in each sample the abundances of amplicons from
+the same species, or genus. There are only 15 amplicons with a species
+assigned. And there is only 1 species with more than one amplicon (with 2).
+I will use the genus level, and ignore species.
+
+Among the filtered amplicons, there are only `r sum(is.na(Traits[filter, 'Genus']))`
+without a genus assigned. I will just remove those, for simplicity.
+
+Splitting data frames, operating with them and then joining the results
+back is usually done with the `plyr` package, I think. I can also use
+the base `split()` function. In any case, the most common proceadure is
+to split the data frame horizontally, by the value of a factor. However,
+now I want to group columns, not rows of the `Ar.prop` matrix. The easiest
+way is to just transpose it and use `lapply()` and `split()`.
+
+```{r perGenus}
+filter2 <- filter & (! is.na(Traits$Genus))
+z <- as.data.frame(t(Ar.prop[, filter2]))
+Ar.genus <- do.call(rbind, lapply(split(z, Traits[filter2, 'Genus']), colSums))
+dim(Ar.genus)
+Ar.genus <- t(Ar.genus)
+dim(Ar.genus)
+# A different way would be something like this:
+# z <- lapply(unique(Traits[filter2, 'Genus']),
+#            function(x) rowSums(Ar.prop[, rownames(Traits[filter2 & Traits$Genus == x,]), drop=FALSE]))
+
+lefsePerGenus <- data.frame(
+  Age = SampleData$age,
+  Batch = SampleData$seqrun,
+  Isoline = SampleData$isoline
+)
+lefsePerGenus <- cbind(lefsePerGenus, Ar.genus)
+write.table(lefsePerGenus, file = 'GeneraRelativeAbundances.tsv',
+            quote = FALSE, sep = '\t', row.names = FALSE,
+            col.names = TRUE)
+```
+
+# Results
+
+Lefse runs in Galaxy. Here there is a [link](http://huttenhower.sph.harvard.edu/galaxy/u/ignasilucas/h/2020-05-01lefseanalysis)
+to the session used to produce the results. I mostly applied default values for the linear
+discriminant analysis.
+
+I run the analysis using both amplicons and genera. I include here only one figure from the
+analysis with genera, that shows the most characteristic genera at early and late ages.
+
+![](./Galaxy19.png)
+
+```{r sessionInfo}
+sessionInfo()
+```
+
+# References
+

@@ -6,6 +6,31 @@ life cycle. We sequenced 16S rRNA gene amplicons and we are analyzing them with 
 
 ------------------------------------------------------------------------------------
 
+## 2020-05-01
+Amparo suggested to use the linear discriminant analysis, implemented
+in the Galaxy tool Lefse, to identify biomarkers of age, or other categorical
+variables. In this folder I prepare the data and I link the results in the Galaxy
+session.
+
+## 2020-04-28
+Amparo suggested to include an abundance barplot, that I had avoided before,
+because of using too many amplicons, instead of a few taxa. Also, because
+the distribution is very skewed, and the plot will not look great. It's time
+to do a decent barplot. Work in progress.
+
+## 2020-04-27
+Inspired by conversations with my colleagues, I outline a set of meaningful tests
+that can be informative, even if negative. Mainly, the purpose is to clarify ideas
+and structure subsequent analyses. It turns out that after refining the differential
+abundance analysis with DESeq2 (2020-03-17), I do find a set of 16 amplicons
+that can explain some variance in life history traits. These are amplicons the
+abundance of which among isolines and across ages is better modeled with an
+interaction term between the isoline and the age terms than without the interaction
+term. That is, they respond to age in an isoline-specific way. Work in progress.
+
+## 2020-04-25
+Summary for group members.
+
 ## 2020-04-22
 After updating results from the differential abundance analysis (2020-03-17),
 which also required updating the phyloseq analysis (2020-02-27), I made sure to
@@ -80,8 +105,20 @@ I just set up the data matrices and make the analysis run, without getting into 
 details. See the report [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-03-25/ordination.html)
 
 ## 2020-03-17
-Using DESeq2 package to test for different abundance between early and late
-microbiomes. See [this](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-03-17/deseq2.html)
+I use the DESeq2 package to test for different abundances between early and late
+microbiomes. At first, I followed a tutorial for phyloseq users, with very basic
+DESeq2 instructions. After reading more about DESeq2, I realize it offers likelihood
+ratio tests to compare different models. I have not seen this feature in EdgeR,
+for example. It makes me think that the right approach, instead of fitting the
+same model to all amplicons, is to separate first the amplicons by their most
+adequate model: those that respond to age from those that don't, and so on. Then,
+the most interesting amplicons are those that deserve the isoline term in the
+abundance model, or even better, those with an interaction term between isoline
+and age. Note that applying an LRT is like testing the significance of several
+terms simultaneously: I don't care if isoline 39 has an effect, but if any isoline
+does. 
+
+See [this](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-03-17/deseq2.html)
 
 ## 2020-02-27
 I use phyloseq to combine abundance and taxonomy information, and to produce some

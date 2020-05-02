@@ -10,7 +10,8 @@ life cycle. We sequenced 16S rRNA gene amplicons and we are analyzing them with 
 Amparo suggested to use the linear discriminant analysis, implemented
 in the Galaxy tool Lefse, to identify biomarkers of age, or other categorical
 variables. In this folder I prepare the data and I link the results in the Galaxy
-session.
+session. The report is [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-05-01/lefse.html)
+and the Galaxy session, [here](http://huttenhower.sph.harvard.edu/galaxy/u/ignasilucas/h/2020-05-01lefseanalysis).
 
 ## 2020-04-28
 Amparo suggested to include an abundance barplot, that I had avoided before,

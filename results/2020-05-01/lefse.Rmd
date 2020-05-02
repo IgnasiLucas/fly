@@ -9,6 +9,7 @@ bibliography: lefse.bib
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 load('../2020-04-22/Diversity.RData')
+LH <- read.table('../../data/LifeHistoryVar.txt', header=TRUE, row.names=1)
 ```
 
 Dr. Amparo Latorre suggested to use Lefse [@Segata2011] to find *biomarkers*
@@ -93,6 +94,118 @@ I run the analysis using both amplicons and genera. I include here only one figu
 analysis with genera, that shows the most characteristic genera at early and late ages.
 
 ![](./Galaxy19.png)
+
+# Application of Lefse to life-history traits
+
+Life-history traits are not categorical, but we can make them binary in order to use
+Lefse to identify the most characteristic amplicons or genera associated with different
+vital strategies. In particular, the principal component analysis run by Pau had
+produced meaninful 3 first components that can be interpreted as different tradoffs.
+Separating isolines according to the sign of their loadings on those principal components
+generates meaningful binary classifications amenable to analysis with Lefse.
+
+## PCA of life-history variables
+
+```{r PCA}
+LH.pca <- prcomp(~ AvLF + CSearly + CSSlope + EarlyRS + Rsen + ActuarialB,
+                 data = LH, na.action = na.omit, center = TRUE, scale. = TRUE)
+LH.pca
+```
+
+As Pau reported, PC1 is high for flies with high *CSearly* and low *CSSlope*;
+that is, high-condition. PC2 is mostly explained by *EarlyRS*; its sign could
+be reversed to indicate with positive numbers the isolines with high reproductive
+success. And PC3 is mostly explained by *AvLF* and *Rsen*: life span and
+reproductive senescence. Changing its sign will make it correlate positively
+with both fitness components.
+
+`LH.pca$x` is the matrix of loadings or rotated coordinates of the isolines.
+I add to `SampleData` three factors, *PC1*, *PC2* and *PC3*, with two levels
+each: high and low. In all cases, *high* indicates the higher fitness side of
+the range, according to the interpretation above, whether that means a positive
+(PC1) or a negative (PC2 and PC3) value of the loadings.
+
+```{r classification}
+SampleData$PC1 <- factor('low', levels=c('low','high'))
+SampleData$PC2 <- factor('low', levels=c('low','high'))
+SampleData$PC3 <- factor('low', levels=c('low','high'))
+
+highPC1isolines <- rownames(LH.pca$x[LH.pca$x[,'PC1'] > 0,])
+highPC2isolines <- rownames(LH.pca$x[LH.pca$x[,'PC2'] < 0,])
+highPC3isolines <- rownames(LH.pca$x[LH.pca$x[,'PC3'] < 0,])
+
+SampleData[SampleData$isoline %in% highPC1isolines, 'PC1'] <- 'high'
+SampleData[SampleData$isoline %in% highPC2isolines, 'PC2'] <- 'high'
+SampleData[SampleData$isoline %in% highPC3isolines, 'PC3'] <- 'high'
+```
+
+```{r amplicons}
+lefsePC1.amplicons <- data.frame(
+  PC1 = SampleData$PC1,
+  Age = SampleData$age
+)
+lefsePC1.amplicons <- cbind(lefsePC1.amplicons, Ar.prop[, filter])
+
+lefsePC2.amplicons <- data.frame(
+  PC2 = SampleData$PC2,
+  Age = SampleData$age
+)
+lefsePC2.amplicons <- cbind(lefsePC2.amplicons, Ar.prop[, filter])
+
+lefsePC3.amplicons <- data.frame(
+  PC3 = SampleData$PC3,
+  Age = SampleData$age
+)
+lefsePC3.amplicons <- cbind(lefsePC3.amplicons, Ar.prop[, filter])
+
+write.table(lefsePC1.amplicons, file='lefsePC1_amplicons.tsv', quote=FALSE,
+            row.names=FALSE, col.names=TRUE, sep='\t')
+write.table(lefsePC2.amplicons, file='lefsePC2_amplicons.tsv', quote=FALSE,
+            row.names=FALSE, col.names=TRUE, sep='\t')
+write.table(lefsePC3.amplicons, file='lefsePC3_amplicons.tsv', quote=FALSE,
+            row.names=FALSE, col.names=TRUE, sep='\t')
+```
+
+```{r genera}
+lefsePC1.genus <- data.frame(
+  PC1 = SampleData$PC1,
+  Age = SampleData$age
+)
+lefsePC1.genus <- cbind(lefsePC1.genus, Ar.genus)
+
+lefsePC2.genus <- data.frame(
+  PC2 = SampleData$PC2,
+  Age = SampleData$age
+)
+lefsePC2.genus <- cbind(lefsePC2.genus, Ar.genus)
+
+lefsePC3.genus <- data.frame(
+  PC3 = SampleData$PC3,
+  Age = SampleData$age
+)
+lefsePC3.genus <- cbind(lefsePC3.genus, Ar.genus)
+
+write.table(lefsePC1.genus, file = 'lefsePC1_genus.tsv', quote = FALSE,
+            row.names = FALSE, col.names = TRUE, sep = '\t')
+write.table(lefsePC2.genus, file = 'lefsePC2_genus.tsv', quote = FALSE,
+            row.names = FALSE, col.names = TRUE, sep = '\t')
+write.table(lefsePC3.genus, file = 'lefsePC3_genus.tsv', quote = FALSE,
+            row.names = FALSE, col.names = TRUE, sep = '\t')
+```
+
+# Lefse results for genus abundance data
+
+Neither binarized PC1 nor PC2 were characterized by any significant genus,
+according to Lefse. In contrast, binary PC3 of life-history traits does seem
+to be associated with some genera. Isolines with long lifespans and low
+reproductive senescence are enriched with *Ralstonia*, *Carnobacterium*,
+*Stenotrophomonas*, *Bacillus*, *Curvibacter*, *Escheirchia* or *Shigella*,
+*Pseudomonas*, *Serratia*, *Mangrovibacter*, *Corynebacterium 1*, *Massilia*
+and *Cutibacterium*. Excess of the always abundant *Acetobacter* seems
+associated with short lifespan and rapid reproductive senescence.
+
+![](./LefsePC3_genus.png)
+
 
 ```{r sessionInfo}
 sessionInfo()

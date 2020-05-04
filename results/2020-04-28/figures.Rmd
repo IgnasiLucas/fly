@@ -1,0 +1,223 @@
+---
+title: "Barplots and phylogenetic trees"
+author: "J. Ignacio Lucas Lledó"
+date: "28/4/2020"
+output: html_document
+bibliography: figures.bib
+notice: |
+  @Wickham2016, @McMurdie2013, @Paradis2018, @Yu2017, @Yu2020
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(phyloseq)
+library(ggplot2)
+library(ape)
+library(ggtree)
+library(tidytree)
+load('../2020-02-27/ps.RData')
+load('../2020-04-22/Diversity.RData')
+# These are amplicons significantly associated with low or high
+# levels of PC1 and PC3 of life-history traits. See 2020-05-01
+PC1low <- c('A0108','A0121','A0128','A0126','A0131','A0140',
+            'A0150','A0152','A0144','A0166','A0171')
+PC3low <- c('A0207','A0229','A0252','A0254','A0257','A0269',
+            'A0264','A0261','A0260','A0281','A0282','A0128')
+PC3high <- 'A0076'
+```
+
+# Barplot of abundances
+
+The reason I have not produced a barplot of abundances before is twofold.
+First, I didn't like the output of the `plot_bar()` function in the phyloseq
+package: it doesn't make it easy at all to remove the black border around the
+boxes. And second, the large number of amplicons and the low diversity of the
+compositions make barplots not very informative, unless carefully customized.
+
+I tried again the `plot_bar()` function in `phyloseq`, following this
+[tutorial](https://joey711.github.io/phyloseq/plot_bar-examples.html). However,
+I find it necessary to *melt* the dataset and work directly with `ggplot2`,
+to remove the default borders around each amplicon's abundance.
+
+In all barplots below, I stack relative abundances from the same isoline and age.
+That makes the height of the bar equal to the number of replicates for each
+isoline and age, which is either 3 or 4. In order to represent compositions
+relative to the same reference level, I divide samples' relative abundances
+by the number of samples from the same isoline and age. Thus, the height of
+the bars represent average values among replicates of the same isoline and
+age.
+
+```{r barplot1, message=FALSE}
+NumRep <- table(sample_data(ps)[,c('age', 'isoline')])
+NumRep
+ps.prop.melted <- psmelt(ps.prop)
+ps.prop.melted$IsoAbundance <- numeric(length = length(ps.prop.melted$Abundance))
+isEarly <- ps.prop.melted$age == 'Early'
+isLate  <- ps.prop.melted$age == 'Late'
+ps.prop.melted[isEarly, 'IsoAbundance'] <- ps.prop.melted[isEarly, 'Abundance'] /
+  NumRep['Early', ps.prop.melted[isEarly, 'isoline']]
+ps.prop.melted[isLate, 'IsoAbundance'] <- ps.prop.melted[isLate, 'Abundance'] /
+  NumRep['Late', ps.prop.melted[isLate, 'isoline']]
+rm(isEarly, isLate)
+ggplot(ps.prop.melted, aes(x = isoline, y = IsoAbundance, fill = Class)) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  facet_wrap(~ age) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  ylab('Relative abundance')
+ggsave(filename = 'Barplot_Isoline_Abundance_Class.png')
+```
+
+I found the Class taxonomic level to be the easiest to visualize in the barplot
+above. There are 7 Classes and 6 Phyla. The correspondence is the following:
+
+```{r table, echo=FALSE}
+unique(tax_table(ps)[,c('Phylum','Class')])
+```
+
+In the barplot above, some bars do not reach the maximum height of 1. The reason is
+that low-abundance amplicons, filtered out in a previous step made up the missing
+fraction.
+
+Below, I break down the average relative abundances by Class.
+
+```{r barplot3}
+z <- split(ps.prop.melted, ps.prop.melted$Class)
+names(z)
+p <- list(length=length(z))
+for (i in 1:length(z)) {
+  z[[i]]$Genus <- droplevels(z[[i]]$Genus)
+}
+ggplot(z$Bacteroidia, aes(x=isoline, y=IsoAbundance, fill=Genus)) +
+  geom_bar(stat='identity', position='stack') +
+  facet_wrap(~ age) +
+  theme(axis.text.x=element_text(angle=90)) +
+  ylab('Relative abundance') + ggtitle('Bacteroidetes')
+ggsave(filename = 'Barplot_Isoline_Abundance_Bacteroidetes.png')
+
+ggplot(z$Verrucomicrobiae, aes(x=isoline, y=IsoAbundance, fill=Genus)) +
+  geom_bar(stat='identity', position='stack') +
+  facet_wrap(~ age) +
+  theme(axis.text.x=element_text(angle=90)) +
+  ylab('Relative abundance') + ggtitle('Verrucomicrobia')
+ggsave(filename = 'Barplot_Isoline_Abundance_Verrucomicrobia.png')
+
+ggplot(z$Oxyphotobacteria, aes(x=isoline, y=IsoAbundance, fill=Order)) +
+  geom_bar(stat='identity', position='stack') +
+  facet_wrap(~ age) +
+  theme(axis.text.x=element_text(angle=90)) +
+  ylab('Relative abundance') + ggtitle('Cyanobacteria')
+ggsave(filename = 'Barplot_Isoline_Abundance_Cyanobacteria.png')
+
+ggplot(z$Actinobacteria, aes(x=isoline, y=IsoAbundance, fill=Genus)) +
+  geom_bar(stat='identity', position='stack') +
+  facet_wrap(~ age) +
+  theme(axis.text.x=element_text(angle=90)) +
+  ylab('Relative abundance') + ggtitle('Actinobacteria')
+ggsave(filename = 'Barplot_Isoline_Abundance_Actinobacteria.png')
+
+ggplot(z$Bacilli, aes(x=isoline, y=IsoAbundance, fill=Genus)) +
+  geom_bar(stat='identity', position='stack') +
+  facet_wrap(~ age) +
+  theme(axis.text.x=element_text(angle=90)) +
+  ylab('Relative abundance') + ggtitle('Firmicutes')
+ggsave(filename = 'Barplot_Isoline_Abundance_Firmicutes.png')
+
+ggplot(z$Gammaproteobacteria, aes(x=isoline, y=IsoAbundance, fill=Genus)) +
+  geom_bar(stat='identity', position='stack') +
+  facet_wrap(~ age) +
+  theme(axis.text.x=element_text(angle=90)) +
+  ylab('Relative abundance') + ggtitle('Proteobacteria, Gammaproteobacteria')
+ggsave(filename = 'Barplot_Isoline_Abundance_Gammaproteobacteria.png')
+
+ggplot(z$Alphaproteobacteria, aes(x=isoline, y=IsoAbundance, fill=Genus)) +
+  geom_bar(stat='identity', position='stack') +
+  facet_wrap(~ age) +
+  theme(axis.text.x=element_text(angle=90)) +
+  ylab('Relative abundance') + ggtitle('Proteobacteria, Alphaproteobacteria')
+ggsave(filename = 'Barplot_Isoline_Abundance_Alphaproteobacteria.png')
+```
+
+In the plots above we can see clear patters. Remarkably, the disappearance
+of almost anything that is not *Acetobacter*, except for *Lactobacillus*.
+The reduction of within-isoline diversity (Alpha diversity?) was known
+before. Now it is also clear that Beta diversity also goes down: it is **not**
+the case that isolines differentiate with age. Rather, they converge to
+a similar state, as in an ecological succession.
+
+# Phylogenetic trees
+
+The analysis with Lefse [@Segata2011] (`2020-05-01`) identified a few amplicons
+significantly associated with low (only one with high) loadings
+of isolines on principal components of life-history traits. All of
+those amplicons belong to *Acetobacter*, which is not surprising, for
+it is the most abundant genus. If amplicons aparently associated with
+life-history traits were clustered within the *Acetobacter* phylogeny,
+the possibility that they are actually rellevant for the fly's physiology
+would be more plausible.
+
+
+```{r ggtree}
+# The amplicons in the tree are these (ordered):
+AmpFilt <- sort(colnames(EA)[EA.filter | LA.filter])
+stopifnot(all.equal(AmpFilt, names(fitGTR$data)))
+TreeTraits <- Traits[AmpFilt,]
+TreeAceto <- drop.tip(fitGTR$tree, TreeTraits[! TreeTraits$Genus %in% 'Acetobacter', 'label'])
+TibbAceto <- as_tibble(TreeAceto)
+TibbAceto$lefse <- character(length=dim(TibbAceto)[1])
+TibbAceto[TibbAceto$label %in% PC1low, 'lefse'] <- 'PC1low'
+TibbAceto[TibbAceto$label %in% PC3low, 'lefse'] <- 'PC3low'
+TibbAceto[TibbAceto$label %in% PC3high, 'lefse'] <- 'PC3high'
+TDAceto <- as.treedata(TibbAceto)
+ggtree(TDAceto, aes(color=lefse)) + theme_tree2()
+```
+
+I need to remove the long branches. And the colors on leaves don't help.
+I also discard the least significant amplicon
+from the `PC3low` set, which belongs to a different clade, and messes up the plot.
+
+```{r prunning}
+TibbAceto[TibbAceto$branch.length > 0.4,]
+# Manually identified these tips in long branches:
+TDAcetoShort <- treeio::drop.tip(TDAceto, c('A1543', 'A1910', 'A2130', 'A2172',
+                                      'A1818', 'A1067', 'A1306', 'A1787', 'A1962'))
+ggtree(TDAcetoShort, layout = 'circular') +
+  geom_hilight(node = MRCA(TDAcetoShort, PC1low), fill='green', alpha=0.5) +
+  geom_hilight(node = MRCA(TDAcetoShort, PC3low[-12]), fill='blue', alpha=0.5) +
+  geom_hilight(node = MRCA(TDAcetoShort, PC3high), fill='red', alpha=0.5) +
+  geom_cladelabel(node = MRCA(TDAcetoShort, PC1low), label='Low PC1', offset.text=0.15) +
+  geom_cladelabel(node = MRCA(TDAcetoShort, PC3low[-12]), label='Low PC3', offset.text=0.05) +
+  geom_cladelabel(node = MRCA(TDAcetoShort, PC3high), label='High PC3', offset.text=0.1) +
+  geom_treescale(x=0.7, offset=5)
+
+ggsave(filename = 'Acetobacter_Circular_Lefse_highlight.png')
+
+ggtree(TDAcetoShort, layout = 'rectangular') +
+  geom_hilight(node = MRCA(TDAcetoShort, PC1low), fill='green', alpha=0.5) +
+  geom_hilight(node = MRCA(TDAcetoShort, PC3low[-12]), fill='blue', alpha=0.5) +
+  geom_hilight(node = MRCA(TDAcetoShort, PC3high), fill='red', alpha=0.5) +
+  geom_cladelabel(node = MRCA(TDAcetoShort, PC1low), label='Low PC1', offset.text=0.05) +
+  geom_cladelabel(node = MRCA(TDAcetoShort, PC3low[-12]), label='Low PC3', offset.text=0.05) +
+  geom_cladelabel(node = MRCA(TDAcetoShort, PC3high), label='High PC3', offset.text=0.1) +
+  geom_treescale(x=0.5, offset=5)
+
+ggsave(filename = 'Acetobacter_Rectangular_Lefse_highlight.png')
+```
+
+After removing just one amplicon (the least significant one) from the set of
+amplicons identified by Lefse as associated with low fitness loadings on PC3,
+it becomes clear that significant amplicons are phylogenetically clustered.
+Amplicons with the same presumed effect on fitness components are closely related
+within the genus tree. In principle, this looks like a strong support for the
+biological significance of the finding. It also suggests that had the amplicons
+been grouped appropriately, the signal would have been stronger.
+
+In the figure, not all highlighted amplicons are significant. The highlighted
+clades are defined by the most recent common ancestor of significant amplicons
+with the same presumed effect.
+
+```{r sessionInfo}
+save(TDAceto, TDAcetoShort, file='figures.RData')
+sessionInfo()
+```
+
+# References

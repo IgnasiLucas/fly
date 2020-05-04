@@ -11,13 +11,20 @@ Amparo suggested to use the linear discriminant analysis, implemented
 in the Galaxy tool Lefse, to identify biomarkers of age, or other categorical
 variables. In this folder I prepare the data and I link the results in the Galaxy
 session. The report is [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-05-01/lefse.html)
-and the Galaxy session, [here](http://huttenhower.sph.harvard.edu/galaxy/u/ignasilucas/h/2020-05-01lefseanalysis).
+and the Galaxy sessions are [here](http://huttenhower.sph.harvard.edu/galaxy/u/ignasilucas/h/2020-05-01lefseanalysis)
+and [here](http://huttenhower.sph.harvard.edu/galaxy/u/ignasilucas/h/unnamed-history).
+Pau suggested to use Lefse to explore the association of amplicon abundances
+with binary versions of principal components of life-history data. Some
+Acetobacter amplicons (but no genus) was detected significantly associated
+mostly with low quality values of PC1 and PC3.
 
 ## 2020-04-28
 Amparo suggested to include an abundance barplot, that I had avoided before,
 because of using too many amplicons, instead of a few taxa. Also, because
-the distribution is very skewed, and the plot will not look great. It's time
-to do a decent barplot. Work in progress.
+the distribution is very skewed, and the plot will not look great. Here I
+do some barplots. I also use this folder to make a phylogenetic tree of the
+Acetobacter genus, highlighting the position of the amplicons declared
+significant by Lefse on `2020-05-01`.
 
 ## 2020-04-27
 Inspired by conversations with my colleagues, I outline a set of meaningful tests

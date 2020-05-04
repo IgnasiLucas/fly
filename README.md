@@ -24,7 +24,8 @@ because of using too many amplicons, instead of a few taxa. Also, because
 the distribution is very skewed, and the plot will not look great. Here I
 do some barplots. I also use this folder to make a phylogenetic tree of the
 Acetobacter genus, highlighting the position of the amplicons declared
-significant by Lefse on `2020-05-01`.
+significant by Lefse on `2020-05-01`. Find a preview of the report
+[here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-04-28/figures.html)
 
 ## 2020-04-27
 Inspired by conversations with my colleagues, I outline a set of meaningful tests

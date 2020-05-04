@@ -161,6 +161,7 @@ would be more plausible.
 AmpFilt <- sort(colnames(EA)[EA.filter | LA.filter])
 stopifnot(all.equal(AmpFilt, names(fitGTR$data)))
 TreeTraits <- Traits[AmpFilt,]
+TreeTraits$label <- rownames(TreeTraits)
 TreeAceto <- drop.tip(fitGTR$tree, TreeTraits[! TreeTraits$Genus %in% 'Acetobacter', 'label'])
 TibbAceto <- as_tibble(TreeAceto)
 TibbAceto$lefse <- character(length=dim(TibbAceto)[1])

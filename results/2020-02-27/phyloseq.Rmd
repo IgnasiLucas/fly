@@ -336,6 +336,10 @@ ggplot(BinaryMDS, aes(x=Rotated1, y=Rotated2, color=seqrun)) +
   ggtitle("Slightly rotated MDS on binary distance")
 ggplot(BinaryMDS, aes(x=Rotated1, y=Rotated2, color=age)) +
   geom_point(size=3, alpha=0.5)
+p <- ggplot(BinaryMDS, aes(x=Rotated1, y=Rotated2, color=age, shape=seqrun)) +
+  geom_point(size=3, alpha=0.5) + xlab('Rotated axis 1') + ylab('Rotated axis 2') +
+  ggtitle('Multidimensional scaling on binary distances')
+ggsave(filename = 'MDS_rotated.png', plot=p)
 ```
 
 # Acetobacter/Lactobacillus ratio

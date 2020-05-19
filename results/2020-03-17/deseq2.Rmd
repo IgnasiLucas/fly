@@ -12,6 +12,7 @@ library(phyloseq)
 library(DESeq2)
 library(ggplot2)
 load('../2020-02-27/ps.RData')
+load('../2020-02-11/taxonomy.RData')
 ```
 
 Here the goal is to test for differential abundance of taxa between age groups
@@ -43,6 +44,8 @@ every other taxa's abundances. This concern is gaining attention [@Quinn2019].
 However, a common understanding is perceived that if compositional changes are
 small, then it does not make a big difference to take such dependence into account.
 
+# Comparison of abundances between early and late
+
 Below, I mostly follow this [tutorial](https://joey711.github.io/phyloseq-extensions/DESeq2.html).
 The test for significance of coefficients in the Negative Binomial GLM (`nbinomWaldTest`)
 throws the warning that 98 coefficients do not converge. Neither increasing the number of
@@ -57,21 +60,23 @@ ds <- phyloseq_to_deseq2(ps, ~ seqrun + isoline + age)
 
 # ds <- DESeq(ds, test='Wald', fitType='parametric')
 # The DESeq function performs three steps that can be run independently:
-ds <- estimateSizeFactors(ds)
+# ds <- estimateSizeFactors(ds)
+stopifnot(all.equal(rownames(SeqTabNoChim), colnames(ds)))
+sizeFactors(ds) <- rowSums(SeqTabNoChim)
 # This filtering did not improve convergence:
 #   f  <- rowSums(counts(ds) >= 10) >= 4
 #   ds <- ds[f,]
 #   ds <- estimateSizeFactors(ds)
 
-ds <- estimateDispersions(ds)
-ds <- nbinomWaldTest(ds)
-dim(ds)
-ds <- ds[mcols(ds)$betaConv, ]
-dim(ds)
-res <- results(ds, cooksCutoff = FALSE)
+ds <- estimateDispersions(ds, fitType = 'local')
+ds0 <- nbinomWaldTest(ds)
+dim(ds0)
+ds0 <- ds0[mcols(ds0)$betaConv, ]
+dim(ds0)
+res <- results(ds0, cooksCutoff = FALSE)
 sum(is.na(res$padj))
 res[is.na(res$padj),'padj'] <- 9.9999
-sigtab <- res[res$padj < 0.001, ]
+sigtab <- res[res$padj < 0.05, ]
 sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(ps)[rownames(sigtab), ], "matrix"))
 dim(sigtab)
 ```
@@ -91,28 +96,72 @@ x = sort(x, TRUE)
 sigtab$Genus = factor(as.character(sigtab$Genus), levels=names(x))
 ggplot(sigtab, aes(x=Genus, y=log2FoldChange, color=Phylum)) + geom_point(size=6) + 
   theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5))
-
+ggsave('FoldChange.png')
 ```
 
-It is unexpected to see some *Acetobacter* variants increase in abundance, while others
-decrease. The following plots clarify this situation.
-
-```{r morePlots}
+```{r morePlots, include=FALSE, eval=FALSE}
 sigtab.Acetobacter <- sigtab[sigtab$Genus == 'Acetobacter' & ! is.na(sigtab$Genus), ]
 ggplot(sigtab.Acetobacter, aes(x=padj, y=log2FoldChange, label=rownames(sigtab.Acetobacter))) +
   geom_point() + scale_x_log10() + geom_label()
 Acetobacter.Decreased <- row.names(sigtab)[sigtab$log2FoldChange < 0 & sigtab$Genus == 'Acetobacter' & ! is.na(sigtab$Genus)]
-ps.Aceto.Dec <- subset_taxa(ps, colnames(otu_table(ps)) %in% Acetobacter.Decreased)
-ggplot(psmelt(transformSampleCounts(ps.Aceto.Dec, function(x) x + 1)), aes(x=age, y=Abundance)) +
-  geom_violin() + facet_wrap(~OTU) + scale_y_log10()
+if (length(Acetobacter.Decreased > 0)) {
+  ps.Aceto.Dec <- subset_taxa(ps, colnames(otu_table(ps)) %in% Acetobacter.Decreased)
+  ggplot(psmelt(transformSampleCounts(ps.Aceto.Dec, function(x) x + 1)), aes(x=age, y=Abundance)) +
+    geom_violin() + facet_wrap(~OTU) + scale_y_log10()
+}
 ```
 
-Even though some *Acetobacter* variants seem less abundant in late life, it is clear from these
-plots that the bulk of the significantly changed variants of this genus are more abundant at
-late life (positive fold change). 
+# Testing the isoline term
+
+Not all amplicons must respond the same way to age, sequencing batch or isoline.
+I should fit progressively more complex models to amplicon abundance, retaining
+in every step only the amplicons that are better modeled with the additional terms.
+I depart from object `ds`, with already calculated dispersions and size factors.
+
+```{r isolineTerm, message=FALSE, warning=FALSE}
+ds3 <- nbinomLRT(ds, full = design(ds),
+                 reduced = ~ seqrun + age)
+res3 <- results(ds3, cooksCutoff = FALSE)
+res3[is.na(res3$padj), 'padj'] <- 9.9999
+AmpliconsIsolineTerm <- rownames(res3[res3$padj < 0.1,])
+```
+
+Above I checked if any amplicon's abundance can be modeled without using the isoline
+term. Those would be amplicons with the same response to age and sequencing batch in
+all isolines: boring ones that could be excluded from further analyses. Unfortunately
+they are a majority. Probably not because they are that homogeneous, but because
+dispersions are too high within isolines to notice differences among them. I will
+focus on the `r length(AmpliconsIsolineTerm)` most significant amplicons.
+
+# Testing for an interaction between age and isoline
+
+Even though unlikely, it would be very interesting to identify amplicons the abundance
+of which respond to age in an isoline-specific way. There being 24 isolines, the number
+of parameters escalate more than the expected improvement in the fit. But I will try,
+anyways. I will use only amplicons previously shown to require the isoline term when
+modeling their abundances.
+
+```{r LRT, warning=FALSE}
+ds2 <- ds[AmpliconsIsolineTerm,]
+ds2 <- nbinomLRT(ds2, full = ~ seqrun + isoline + age + isoline:age,
+                 reduced = ~ seqrun + isoline + age)
+dim(ds2)
+ds2 <- ds2[mcols(ds2)$fullBetaConv, ]
+dim(ds2)
+res2 <- results(ds2, cooksCutoff = FALSE)
+res2[is.na(res2$padj), 'padj'] <- 9.9999
+AmpliconsInteractionTerm <- rownames(res2[res2$padj < 0.1, ])
+```
+
+Surprisingly, there are `r sum(res2$padj < 0.1)` amplicons with a significant
+interaction term between isoline and age. I expect these to be the most relevant
+for life-history traits variance among isolines.
+
+# Session Information
 
 ```{r sessioninfo}
-save(ds, res, sigtab, file='DESeq2.RData')
+save(ds, ds2, ds3, res, res2, res3, sigtab,
+     AmpliconsIsolineTerm, AmpliconsInteractionTerm, file='DESeq2.RData')
 sessionInfo()
 ```
 

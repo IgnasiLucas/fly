@@ -28,14 +28,22 @@ significant by Lefse on `2020-05-01`. Find a preview of the report
 [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-04-28/figures.html)
 
 ## 2020-04-27
-Inspired by conversations with my colleagues, I outline a set of meaningful tests
-that can be informative, even if negative. Mainly, the purpose is to clarify ideas
-and structure subsequent analyses. It turns out that after refining the differential
-abundance analysis with DESeq2 (2020-03-17), I do find a set of 16 amplicons
-that can explain some variance in life history traits. These are amplicons the
-abundance of which among isolines and across ages is better modeled with an
-interaction term between the isoline and the age terms than without the interaction
-term. That is, they respond to age in an isoline-specific way. Work in progress.
+Here I complete the analysis of diversity by exploring the relationship
+between age or isolines and beta diversity. Curiously, neither phylogenetic
+beta diversity of ASVs nor beta diversity of genera decrease with age,
+while simple presence-absence beta diversity (not phylogenetically informed)
+of ASVs does decrease with age. That is, microbiomes from different flies
+resemble more each other late than early in life if we look at ASV composition,
+but not if we take into account how similar sequences are.
+
+Then I run again an RDA to correlate ASV abundance and life-history traits.
+This time I use only early abundances of ASVs that in `2020-03-17` proved to
+require an interaction term between age and isoline to adequately model their
+abundances. I apply a logarithmic transformation and keep only ASVs with very
+low skewness in their distribution of abundance across isolines (an RDA requirement).
+The 18 ASVs left prove significant in a global test, and I proceed with model
+selection. There seems to be two Acetobacter clades with negative effects on
+either life span or functional aging.
 
 ## 2020-04-25
 Summary for group members.

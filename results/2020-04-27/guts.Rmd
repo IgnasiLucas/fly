@@ -1,0 +1,534 @@
+---
+title: "Gut microbiota and life-history traits"
+author: "J. Ignacio Lucas Lledó"
+date: "27/4/2020"
+output: html_document
+bibliography: guts.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(vegan)
+library(ggplot2)
+library(gridExtra)
+library(mice)
+library(e1071)
+library(ape)
+library(picante)
+library(ggtree)
+library(tidytree)
+load('../2020-04-22/Diversity.RData')
+load('../2020-03-17/DESeq2.RData')
+LH <- read.table('../../data/LifeHistoryVar.txt', header=TRUE, row.names=1)
+```
+
+# Amplicons or genera
+
+When estimating and interpreting diversity, we can use amplicon sequence variants (ASV)
+or genera. When using ASVs it is important to take sequence similarity into account,
+because otherwise we could overestimate the functional diversity of groups with mostly
+neutral diversity.
+
+Matrices `Ar` and `Ar.prop` contain ASV counts and frequencies (respectively) in the
+177 samples. I need to create equivalent matrices for genera, before filtering. There
+are 82 amplicons without attributed genus. I will add the *Unknown* genus, to be able
+to include those amplicons in the analysis.
+
+```{r genera}
+stopifnot(all.equal(rownames(Traits), colnames(Ar)))
+Traits[is.na(Traits$Genus), 'Genus'] <- 'unknown'
+# Using sapply(..., simplify=FALSE) instead of lapply() I get columns named by genus
+Genera.counts <- do.call(cbind,
+                         sapply(unique(Traits$Genus),
+                                function(x, G=Traits, M=Ar) {
+                                  f <- rownames(G[G$Genus == x,])
+                                  rowSums(M[, f, drop=FALSE])
+                                },
+                                simplify = FALSE))
+# I generate genus frequencies by adding up ASV frequencies, instead of normalizing
+# the counts because the ASV relative frequencies may not add up to 1 if some ASVs
+# have already been filtered out.
+Genera.prop <- do.call(cbind,
+                       sapply(unique(Traits$Genus),
+                              function(x, G=Traits, M=Ar.prop) {
+                                f <- rownames(G[G$Genus == x,])
+                                rowSums(M[, f, drop = FALSE])
+                              },
+                              simplify = FALSE))
+```
+
+Here I am running most analyses keeping replicates separate, in contrast to
+the analysis in `2020-04-22`, for example, where I joined the counts from
+the 3 or 4 replicates of each isoline-age combination. This different approach
+calls for a different filtering strategy. It is not appropriate to filter
+ASVs by their isoline-level minimum prevalence or abundance, because at the
+replicate level the power to detect ASVs may be 3 to 4 times lower. Thus, I
+must be more demanding on the minimum proportion (too low frequency ASVs may
+not be observable in individual samples) and on minimum prevalence (there are
+only 24 isolines, but 177 samples). I also need to remove samples with too few
+counts (E31D and L35C), before using them in the calculation of average
+proportions and prevalences.
+
+Filtering low frequency ASVs make samples with different sequencing effort more
+comparable. A different question is if the same filter must be applied for early
+and late samples. Up to now I have been using the same set of ASVs to measure
+diversity early and late, by requiring the thresholds to be met among either early
+or late samples. I realize this can have the effect of having very different
+abundance distributions in early and late samples, especially if one category was
+composed by a subset of the taxa in the other. Thus, this kind of filtering could
+upwardly bias the difference in diversity between classes of samples.
+
+For some applications below, I need all samples in the same matrix, and therefore
+they must be scored for the abundance (or presence) of the same set of ASVs
+(or genera). An alternative filtering strategy would
+be to apply the filters globally: include ASVs (or genera) that meet the thresholds
+over all samples, not only within their age class. I didn't use this approach before
+because I expect it to have the effect of homogenizing the composition between
+age classes: age class-specific ASVs would be less likely to meet the thresholds
+than ASVs present in all ages. But I suppose it is better to be conservative when
+testing for a difference in alpha diversity between early and late microbiomes.
+
+```{r filters}
+Sample.filter <- rowSums(Ar) >= 3000
+Traits$meanProp <- apply(Ar.prop[Sample.filter,], 2, mean)
+Traits$prevalence <- colSums(Ar[Sample.filter,] > 0)
+MinProp <- 1.0e-5
+MinPrev <- 5
+
+ggplot(Traits, aes(x=meanProp, y=prevalence)) +
+  geom_point(size=0.5) + scale_x_log10() +
+  geom_vline(xintercept=MinProp, color='red') + geom_hline(yintercept=MinPrev, color='red')
+
+ASV.filter <- Traits$meanProp >= MinProp & Traits$prevalence >= MinPrev
+
+Genera.traits <- data.frame(
+  meanProp = apply(Genera.prop[Sample.filter,], 2, mean),
+  prevalence = colSums(Genera.prop[Sample.filter,] > 0)
+)
+
+ggplot(Genera.traits, aes(x=meanProp, y=prevalence)) +
+  geom_point(size=0.5) + scale_x_log10() +
+  geom_vline(xintercept=MinProp, color='red') + geom_hline(yintercept=MinPrev, color='red')
+
+Genus.filter <- Genera.traits$meanProp >= MinProp & Genera.traits$prevalence >= MinPrev
+```
+
+# Alpha diversity
+
+The change of $\alpha$ diversity with age is quite well resolved. I learned 
+that amplicon diversity is not reduced with age. The reason is the high resolution
+afforded by ASVs: even if one species (or genus) becomes dominant, it can
+include a large number of ASVs (just as expected under the neutral theory),
+to the point that ASV diversity remains high. Lesson 1: when using ASVs, a
+more useful measure of diversity should incorporate the phylogenetic distances
+among ASVs. To use the phylogenetic diversity index is the best option. An
+alternative is to compute genus diversity, instead of ASV diversity. To illustrate
+it, I include here a boxplot of phylogenetic diversities *per sample* (where samples
+are not aggregated by isoline and age). This is quite redundant with `2020-04-22`.
+
+```{r alpha}
+ASV.alpha <- diversity(Ar[Sample.filter, ASV.filter], index = 'shannon')
+boxplot(ASV.alpha ~ SampleData[Sample.filter, 'age'], xlab='Age', ylab='Shannon diversity',
+        main = 'ASV diversity', log='y', notch=TRUE)
+ASV.pd <- pd(Ar[Sample.filter, ASV.filter], fitGTR$tree, include.root=FALSE)[,1]
+boxplot(ASV.pd ~ SampleData[Sample.filter, 'age'], xlab='Age', ylab='Phylogenetic diversity',
+        main = 'ASV diversity', log='y',  notch=TRUE)
+```
+
+Let's compare it to the genus diversity.
+
+```{r alphaGenus}
+Genera.alpha <- diversity(Genera.counts[Sample.filter, Genus.filter], index = 'shannon')
+boxplot(Genera.alpha ~ SampleData[Sample.filter, 'age'], xlab = 'Age', ylab = 'Shannon diversity',
+        main = 'Genus diversity', log='y', notch=TRUE)
+```
+
+Not only diversity is lower in late samples, but dispersion also seems lower.
+
+# Beta diversity
+
+## Test for homogeneity between early and late ages
+
+How does microbiome change along life?  One possibility is that early in
+life all isolines have a very similar and more generic microbiome, mostly
+determined by food, which is common to all isolines. Then, over time,
+isolines could diverge in the selective environments they offer to their
+microbiomes, increasing diversity among isolines. Thus, even if alpha
+diversity goes down, beta diversity would increase. Alternatively, the
+colonization events may be quite variable among isolines (or even among
+individual flies), in comparison to the final state late in life, as if
+there was a convergent ecological succession in any fly. In that case,
+not only alpha but also beta diversity would decrease.
+
+In principle, I expect a decrease in $\beta$ diversity, because the general dominance
+of *Acetobacter* amplicons in all late samples suggest a homogeneization of microbiota
+with age. This can be tested with a *distance-based test for homogeneity
+of multivariate dispersions* [@Anderson2006]. Below I use both `anova()` and
+`permutest()` from the `vegan` package [@Oksanen2019].
+
+To apply these tests we can use any distance measure between samples, because
+they are turned into principal coordinates. Let's first use a simple $\beta$
+diversity metric based on presence/absence data. Since it does not use abundance,
+ther is no need to normalize the counts. But the two samples with very low counts,
+E31D and L35C, could still introduce some noise.
+
+```{r betadiver}
+SimDist <- betadiver(Ar[Sample.filter, ASV.filter], method='sim')
+stopifnot(all.equal(labels(SimDist), rownames(SampleData[Sample.filter,])))
+anova(betadisper(SimDist, SampleData[Sample.filter, 'age']))
+permutest(betadisper(SimDist, SampleData[Sample.filter, 'age']))
+plot(betadisper(SimDist, SampleData[Sample.filter, 'age']))
+boxplot(betadisper(SimDist, SampleData[Sample.filter, 'age']), notch=TRUE, xlab='Age')
+```
+
+These results confirm that $beta$ diversity is higher early than late in life.
+That is, the ASV turnover is higher early than late in life, among samples.
+
+Note, however, that I did not use a phylogenetic beta diversity. Taking phylogenetic
+distances among ASVs into account was necessary to notice a difference in $\alpha$
+diversity between early and late life samples. Should I expect the difference
+in $\beta$ diversity also to be larger when using a phylogenetic $\beta$
+diversity?
+
+As a phylogenetic $\beta$ diversity, the UniFrac dissimilarity measure is
+popular in microbial ecology. It is implemented in `picante`. It requires
+the tree to be rooted. To root the tree I use as outgroup the small, monophyletic
+group of Bacteroidetes.
+
+```{r treedive}
+Bacteroidetes <- fitGTR$tree$tip.label[fitGTR$tree$tip.label %in%
+                                         rownames(Traits[Traits$Phylum=='Bacteroidetes',])]
+RootedTree <- root(fitGTR$tree,
+                   outgroup = Bacteroidetes,
+                   resolve.root = TRUE)
+
+UniFracDist <- unifrac(Ar[Sample.filter, ASV.filter], RootedTree)
+stopifnot(all.equal(labels(UniFracDist), rownames(SampleData[Sample.filter,])))
+anova(betadisper(UniFracDist, SampleData[Sample.filter, 'age'], add=TRUE))
+permutest(betadisper(UniFracDist, SampleData[Sample.filter, 'age'], add=TRUE))
+plot(betadisper(UniFracDist, SampleData[Sample.filter, 'age'], add=TRUE))
+boxplot(betadisper(UniFracDist, SampleData[Sample.filter, 'age'], add=TRUE),
+        notch=TRUE, xlab='Age')
+```
+
+Surprisingly, when using phylogenetic $\beta$ diversity, there is no
+significant difference between early and late samples. How can this be
+explained, if the opposite was true with non-phylogenetic metrics? This result
+seems to imply that early samples differ in presence/absence of potentially
+many but phylogenetically equivalent ASVs; whereas late-in-life samples,
+must tend to differ in the presence or absence of deeper lineages, to the
+point of compensating their overall more similar composition.
+
+The `vegan` package offers `treedist()` to estimate phylogenetic beta
+diversity. This requires hierarchical clustering of species that cannot
+be obtained from a phylogenetic tree unless it's ultrametric. One way to
+make the tree ultrametric would be to calibrate it, and turn it into a
+time-tree. The `ape` package offers the 'chronos()` function for that. I
+follow the [phylobotanist](http://phylobotanist.blogspot.com/2018/04/time-calibrated-or-at-least-ultrametric.html) to make the tree ultrametric by setting the age of the
+root. I tried to run the code below to get an alternative measure of
+phylogenetic beta diversity. However, the `treedist()` function produced
+all zero distances among samples, and I don't know why.
+
+```{r timetree, eval=FALSE}
+# The process of making the tree ultrametric is slow.
+if (file.exists('TimeTree.RData')) {
+  load('TimeTree.RData')
+} else {
+  myCalibration <- makeChronosCalib(RootedTree, node='root', age.max=50)
+  TimeTree <- chronos(RootedTree, lambda=1, model='correlated',
+                      calibration = myCalibration, control = chronos.control())
+  save(TimeTree, file='TimeTree.RData')
+}
+TreeDist <- treedist(Ar[Sample.filter, ASV.filter], as.hclust(TimeTree))
+stopifnot(all.equal(labels(TreeDist), rownames(SampleData[Sample.filter,])))
+anova(betadisper(TreeDist, SampleData[Sample.filter, 'age']))
+permutest(betadisper(TreeDist, SampleData[Sample.filter, 'age']))
+plot(betadisper(TreeDist, SampleData[Sample.filter, 'age']))
+boxplot(betadisper(TreeDist, SampleData[Sample.filter, 'age']))
+```
+
+Beta diversity can also be explored using genera.
+
+```{r betaGenus}
+Genera.SimDist <- betadiver(Genera.counts[Sample.filter, Genus.filter], method='sim')
+stopifnot(all.equal(labels(Genera.SimDist), rownames(SampleData[Sample.filter,])))
+anova(betadisper(Genera.SimDist, SampleData[Sample.filter, 'age']))
+permutest(betadisper(Genera.SimDist, SampleData[Sample.filter, 'age']))
+plot(betadisper(Genera.SimDist, SampleData[Sample.filter, 'age']))
+boxplot(betadisper(Genera.SimDist, SampleData[Sample.filter, 'age']), notch=TRUE, xlab='Age')
+```
+
+While still an unexpected result, it was expected that genus-based test would
+produce the same result as the one based on phylogenetic diversity.
+
+## Test of homogeneity among isolines
+
+The same method can be used to see if isolines (or isoline $\times$ age
+combinations) have homogeneous dispersons in the ASV space. I will compare
+isolines twice: first using early samples, and then late ones.
+
+```{r interaction}
+isEarly <- SampleData$age == 'Early'
+isLate  <- SampleData$age == 'Late'
+EarlySimDist <- betadiver(Ar[isEarly & Sample.filter, ASV.filter], method='sim')
+LateSimDist  <- betadiver(Ar[isLate & Sample.filter,  ASV.filter], method='sim')
+anova(betadisper(EarlySimDist, SampleData[isEarly & Sample.filter, 'isoline']))
+permutest(betadisper(EarlySimDist, SampleData[isEarly & Sample.filter, 'isoline']))
+plot(betadisper(EarlySimDist, SampleData[isEarly & Sample.filter, 'isoline']))
+boxplot(betadisper(EarlySimDist, SampleData[isEarly & Sample.filter, 'isoline']),
+        xlab='Isoline', main='Early samples, Simpson distance')
+
+anova(betadisper(LateSimDist, SampleData[isLate & Sample.filter, 'isoline']))
+permutest(betadisper(LateSimDist, SampleData[isLate & Sample.filter, 'isoline']))
+plot(betadisper(LateSimDist, SampleData[isLate & Sample.filter, 'isoline']))
+boxplot(betadisper(LateSimDist, SampleData[isLate & Sample.filter, 'isoline']),
+        xlab='Isoline', main='Late samples, Simpson distance')
+```
+
+The nice thing of the PCoA plots above is that I can see the variation
+in composition among biological replicates, and among isolines. About the
+boxplots, I remark first what we already know: early samples are further
+away from their isoline centroids than late samples. The different amounts
+of dispersion among isolines, both early and late in life are not significant,
+probably due to the limited number of replicates (3 or 4).
+
+## Analysis of variance using distance matrices
+
+Another thing we can do with $\beta$ diversity is to see how well its
+distribution corresponds to factors that characterize the samples, namely:
+age, isoline and sequencing batch. The difference with the tests of
+homogeneity performed above is that now I will be correlating the actual
+position (not just the dispersions) of samples in the multidimensional
+ASV space with their attributes. It is quite similar to a constrained
+ordination analysis, like redundancy analysis. But in contrast to my
+previous attempts to run rundancy analyses, here I focus in explaining
+microbiome compositions, rather than using them to explain physiological
+variation in the hosts.
+
+```{r adonis2}
+# No need to save the results
+adonis2(SimDist ~ age * isoline + seqrun, data = SampleData[Sample.filter,])
+adonis2(UniFracDist ~ age * isoline + seqrun, data = SampleData[Sample.filter,])
+adonis2(Ar[Sample.filter, ASV.filter] ~ age * isoline + seqrun,
+        data = SampleData[Sample.filter,])
+```
+
+Results from different distance measures are quite equivalent: the isoline
+and the specific way isolines respond to age are the main determinants of
+the variation in microbiome composition. Age and sequencing batch are also
+significant.
+
+## Cannonical correspondance analysis
+
+Exploratory ordination plots are available in `2020-03-25`. What I haven't
+done yet is a constrained (or canonical) correspondance analysis (CCA) using age,
+isoline and sequencing batch as constraining factors. It is probably unnecessary,
+after having shown that both isoline and age, and their interaction, significantly
+affect the ASV composition of microbiomes. 
+
+```{r cca}
+Ar.cca <- cca(Ar[Sample.filter, ASV.filter] ~ isoline + age + Condition(seqrun),
+              data = SampleData[Sample.filter,])
+plot(Ar.cca, display='bp')
+```
+
+Using ASV, instead of phyla or genera, prevents any useful display of *species* in the
+biplot. Let's see if using genera we get something more interesting.
+
+```{r genera2}
+Genera.cca <- cca(Genera.counts[Sample.filter, Genus.filter] ~ isoline + age + Condition(seqrun),
+                  data = SampleData[Sample.filter,])
+Genera.cca
+plot(Genera.cca, display='bp')
+```
+
+# Life history variables of isolines.
+
+Life history variables include two missing data. I use 10 different imputations
+to get a sense of the uncertainty due to missing data. Note I impute values
+using all information available, and only then I select the isolines for which
+we have microbiome data and the variables of interest.
+
+```{r LH, message=FALSE}
+LHc <- apply(LH, 2, function(x) (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE))
+LHc.imp <- mice(LHc, m=10)
+LH.all <- complete(LHc.imp, action='all')
+validIsolines  <- row.names(EA)
+validVariables <- c('CSearly', 'CSlate', 'EarlyRS', 'Rsen', 'AvLF', 'ActuarialB')
+LH.all <- lapply(LH.all, function(x, f1=validIsolines, f2=validVariables) x[f1, f2])
+```
+
+Using life-history variables forces me to adopt
+an isoline-centered perspective. I need to use now the `EA` and `LA` matrices
+where abundance data from replicates is collapsed at the isoline level.
+
+A first question is if diversity measures by themselves could explain any
+of the variation in life history variables. I will use `DiverIso.wide` data
+frame, created on `2020-04-22`, which includes measures of phylogenetic
+diversity for early and late samples in every isoline. I add genus diversity.
+
+```{r diversityRDA, warning=FALSE}
+Genera.early <- do.call(rbind, lapply(split(as.data.frame(Genera.counts[isEarly,]),
+                                            SampleData[isEarly, 'isoline']), colSums))
+Genera.late  <- do.call(rbind, lapply(split(as.data.frame(Genera.counts[isLate, ]),
+                                            SampleData[isLate,  'isoline']), colSums))
+DiverIso.wide$Shannon.Genus.E <- diversity(Genera.early, index='shannon')
+DiverIso.wide$Shannon.Genus.L <- diversity(Genera.late, index='shannon')
+DiverIso.wide$Simpson.Genus.E <- diversity(Genera.early, index='simpson')
+DiverIso.wide$Simpson.Genus.L <- diversity(Genera.late, index='simpson')
+
+sapply(DiverIso.wide, skewness)
+Predictors <- DiverIso.wide[, c('PD.Early','PD.Late','SR.Early','SR.Late',
+                                'Shannon.E','Shannon.L','Shannon.Genus.E',
+                                'Shannon.Genus.L')]
+
+# First, I fit a null model with only the intercept
+RDA0 <- lapply(LH.all, function(lh) rda(lh ~ 1, data=Predictors))
+# This is the complete model, with all diversity measures
+RDAX <- lapply(LH.all, function(lh) rda(lh ~ ., data=Predictors))
+RDAX.aov <- lapply(RDAX, anova)
+sapply(RDAX.aov, function(x) x$'Pr(>F)'[1])
+
+# This is an automatic model selection procedure
+RDA <- lapply(RDA0, function(x) ordiR2step(x, RDAX[[1]], trace=FALSE, Pin=0.1,
+                                           Pout=0.15, R2scope=FALSE))
+sapply(RDA, function(x) x$terms[[3]])
+```
+
+I don't see any measure of diversity, neither by itself nor combined with
+others, significantly correlated with life history traits. I conclude that
+having a more or less diverse microbiome does not, by itself, affect fitness.
+
+# The role of amplicons or taxa that changed abundance between early and late time points
+
+On `2020-03-17` I fit the model `~ seqrun + isoline + age` to amplicon
+abundances using the `DESeq2` package. Amplicons with a significant
+difference in abundance between early and late samples reflect a common
+response from all or most isolines. When trying to explain the variance
+in life-history traits among isolines, the most interesting amplicons
+are actually those that vary among isolines.
+
+Later on, I complemented the analysis in `2020-03-17`. I selected
+the subset of amplicons for which a likelihood ratio test showed
+that the *isoline* term produced a significantly better fit
+(`AmpliconsIsolineTerm`); and the subset of them with a significant
+interaction term between *isoline* and *age*.
+
+I want to note that *DESeq2* does not allow for mixed models. Maybe I
+could try the package *VariancePartition*, with the `dream()` function.
+
+Below, I finally got a (marginally) significant global fit. It worked using
+only the early abundances of the amplicons with the lowest pvalue
+of the LRT for the interaction term, after transforming the relative
+abundances to reduce the skew, and removing those that remained too
+skewed. An appropriate maximum skewness proved essential to obtain the
+almost significant results.
+
+```{r interactionTerm}
+SelectedAmplicons <- rownames(res2[res2$padj < 0.001, ])
+#SelectedAmplicons  <- rownames(res2[order(res2$pvalue), ])[1:23]
+z <- log10(EA.prop[, SelectedAmplicons] + 1.0e-07)
+dim(z)
+# I tried different skewness thresholds to get fewer than 24 ASVs.
+z  <- z[, abs(apply(z, 2, skewness)) < 0.25]
+dim(z)
+if (dim(z)[2] > 23) {
+  # Not used
+  print('Using PCA')
+  z.pca <- prcomp(z)
+  Predictors <- as.data.frame(z.pca$x[, 1:22])
+  print(sprintf("%% of variance: %.4f %%", 100 * sum(eigenvals(z.pca)[1:22])/sum(eigenvals(z.pca))))
+} else {
+  print(sprintf('Using %i amplicons', dim(z)[2]))
+  Predictors <- as.data.frame(z[,1:(dim(z)[2])])
+}
+RDA0 <- lapply(LH.all, function(lh) rda(lh ~ 1, data=Predictors))
+RDAX <- lapply(LH.all, function(lh) rda(lh ~ ., data=Predictors))
+RDAX.aov <- lapply(RDAX, anova)
+sapply(RDAX.aov, function(x) x$'Pr(>F)'[1])
+```
+
+The 10 values above are the p-values for the global test in the 10
+datasets produced by multiple imputation. They are the lowest p values
+I have seen in a global test till now. This is a good start to build
+a model. Even relaxing the thresholds, a forward selection model departing
+from the null model with only the intercept only adds one ASV (A0071,
+*Acetobacter*, of course). Below I use a backward selection procedure
+to remove from the complete model the irrelevant terms.
+
+```{r ModelSelection}
+RDA <- lapply(RDAX, function(x) ordistep(x, RDAX[[1]], trace=FALSE, Pin=0.05,
+                                         direction = 'backward', Pout=0.1, steps=500))
+#RDA <- lapply(RDA0, function(x) ordiR2step(x, RDAX[[1]], trace=FALSE,
+#                                           Pin=0.15, Pout=0.2, R2scope=FALSE))
+# Number of models a terms appears in:
+TermUsage <- table(unlist(sapply(RDA, function(x) attr(x$terminfo$terms, 'term.labels'))))
+TermUsage
+```
+
+Finally, I fit in all imputated datasets the same model with the
+terms that got selected in at least 9 of those replicates.
+
+```{r finalModel, fig.height=10, fig.width=10}
+UsedTerms <- names(TermUsage[TermUsage > 8])
+RDA <- lapply(LH.all, function(lh) rda(lh ~ ., data=Predictors[,UsedTerms]))
+sapply(RDA, function(x) summary(x)$constr.chi / summary(x)$tot.chi)
+par(mfrow=c(2,2))
+plot(RDA[[1]], choice=c(1,2), type='text', scaling=2)
+plot(RDA[[1]], choice=c(3,2), type='text', scaling=2)
+plot(RDA[[1]], choice=c(1,3), type='text', ylim=c(2, -2), scaling=2)
+par(mfrow=c(1,1))
+```
+
+There are two groups of ASVs with different,
+apparently negative effects on fitness. First, A0065 and A0071
+seem to *push* in a direction away from *CSlate* (late climbing speed).
+I name this group "functional agers". Then, A0059, A0097 and A0123 move
+away from *AvLF* (average life span, I think); I name this group "life
+shorteners". Are those ASVs scattered in the *Acetobacter* phylogeny? Or are they
+clusters of related clones? 
+
+```{r tree, fig.width=10, fig.height=10}
+TreeTraits <- Traits[names(fitGTR$data),]
+TreeTraits$label <- rownames(TreeTraits)
+TreeAceto <- drop.tip(fitGTR$tree, TreeTraits[! TreeTraits$Genus %in% 'Acetobacter', 'label'])
+TibbAceto <- as_tibble(TreeAceto)
+TibbAceto$modelTerms <- TibbAceto$label %in% UsedTerms
+TDAceto <- as.treedata(TibbAceto)
+TDAceto <- treeio::drop.tip(TDAceto, c('A1543', 'A1910', 'A2130', 'A2172',
+                                      'A1818', 'A1067', 'A1306', 'A1787', 'A1962'))
+ggtree(TDAceto, layout='circular') +
+  geom_hilight(node=MRCA(TDAceto, c('A0059','A0097','A0123')), fill='blue', alpha=0.5) +
+  geom_hilight(node=MRCA(TDAceto, c('A0065','A0071')), fill='red', alpha=0.5) +
+  geom_label2(aes(subset=modelTerms, label=label))
+```
+
+They are clearly clustered, which suggests that several other ASV with related
+sequences should also have similar effects.  
+
+```{r test}
+nodes.FA <- offspring(TDAceto, MRCA(TDAceto, c('A0065','A0071')), tiponly=TRUE)
+nodes.LS <- offspring(TDAceto, MRCA(TDAceto, c('A0059','A0097','A0123')), tiponly=TRUE)
+FunctionalAgers <- TibbAceto[TibbAceto$node %in% nodes.FA, 'label']$label
+LifeShorteners  <- TibbAceto[TibbAceto$node %in% nodes.LS, 'label']$label
+
+Predictors <- data.frame(
+  FA = log10(apply(EA.prop[,FunctionalAgers], 1, mean) + 1.0e-7),
+  LS = log10(apply(EA.prop[,LifeShorteners], 1, mean) + 1.0e-7)
+)
+
+RDA2 <- lapply(LH.all, function(lh) rda(lh ~ FA, data=Predictors))
+RDA2.aov <- lapply(RDA2, anova)
+sapply(RDA2.aov, function(x) x$'Pr(>F)'[1])
+rm(RDA2.aov)
+```
+
+Either the combined or the average early abundances of presumed
+*functional agers* or *life shorteners* added more noise than signal.
+The relatinship with life history traits disappears when using all
+ASV in their clusters. This does not invalidate the results, but
+adds a note of caution.
+
+# References
+
+

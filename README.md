@@ -45,6 +45,8 @@ The 18 ASVs left prove significant in a global test, and I proceed with model
 selection. There seems to be two Acetobacter clades with negative effects on
 either life span or functional aging.
 
+See a preview of the report [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-04-27/guts.html).
+
 ## 2020-04-25
 Summary for group members.
 

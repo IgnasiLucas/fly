@@ -122,6 +122,10 @@ all isolines in the same space. Here, for the moment I just want to measure dive
 I think diversity measures will be more accurate if I relax those filters and
 let low abundance amplicons be counted. I can raise the bar later, if needed.
 
+To be consistent with `2020-04-27`, I do not filter early and late samples
+independently, but impose prevalence and proportion thresholds globally. This
+is more conservative when testing for diversity differences between ages.
+
 ```{r filtering, warning=FALSE, message=FALSE}
 # Per isoline:
 EA.prop <- t(apply(EA, 1, function(x) x / sum(x)))
@@ -131,17 +135,21 @@ LA.prop <- t(apply(LA, 1, function(x) x / sum(x)))
 Ar <- SeqTabNoChim
 rm(SeqTabNoChim)
 Ar.prop <- t(apply(Ar, 1, function(x) x/sum(x)))
+Sample.filter <- rowSums(Ar) >= 3000
 
 # Data frame of amplicon traits, available for use with picante package.
 Traits <- data.frame(
+  meanProp = apply(Ar.prop[Sample.filter,], 2, mean),
+  prevalence = colSums(Ar[Sample.filter,] > 0),
   EA.meanProp = apply(EA.prop, 2, mean),
   LA.meanProp = apply(LA.prop, 2, mean),
   EA.prevalence = colSums(EA > 0),
   LA.prevalence = colSums(LA > 0)
 )
 
-MinProp <- 1.0e-6
-MinPrev <- 3
+MinProp <- 1.0e-5
+MinPrev <- 5
+ASV.filter <- Traits$meanProp >= MinProp & Traits$prevalence >= MinPrev
 
 p1 <- ggplot(Traits, aes(x=EA.meanProp, y=EA.prevalence)) +
   geom_point(size=0.5) + scale_x_log10() + ggtitle('Early') +
@@ -165,8 +173,7 @@ Aligning only filtered sequences:
 if (file.exists('alignment.RData')) {
    load('alignment.RData')
 } else {
-   AmpFilt <- sort(colnames(EA)[EA.filter | LA.filter])
-   # AmpFilt <- unique(c(colnames(EA)[EA.filter], colnames(LA)[LA.filter]))  # same.
+   AmpFilt <- sort(colnames(Ar)[ASV.filter])
    alignment <- AlignSeqs(RNAStringSet(dna[AmpFilt]))
    BrowseSeqs(alignment, htmlFile='alignment.html', openURL=FALSE)
    save(alignment, file='alignment.RData')

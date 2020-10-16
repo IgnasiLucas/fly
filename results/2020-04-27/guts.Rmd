@@ -11,14 +11,17 @@ knitr::opts_chunk$set(echo = TRUE)
 library(vegan)
 library(ggplot2)
 library(gridExtra)
-library(mice)
-library(e1071)
+library(mice)          # for multiple imputation
+library(e1071)         # for skewness calculation
 library(ape)
 library(picante)
 library(ggtree)
 library(tidytree)
+library(GUniFrac)
 load('../2020-04-22/Diversity.RData')
+ls()
 load('../2020-03-17/DESeq2.RData')
+ls()
 LH <- read.table('../../data/LifeHistoryVar.txt', header=TRUE, row.names=1)
 ```
 
@@ -37,6 +40,7 @@ to include those amplicons in the analysis.
 ```{r genera}
 stopifnot(all.equal(rownames(Traits), colnames(Ar)))
 Traits[is.na(Traits$Genus), 'Genus'] <- 'unknown'
+# Having no NA values in Genus, I can use "==" below, instead of "%in%". 
 # Using sapply(..., simplify=FALSE) instead of lapply() I get columns named by genus
 Genera.counts <- do.call(cbind,
                          sapply(unique(Traits$Genus),
@@ -140,7 +144,16 @@ Let's compare it to the genus diversity.
 ```{r alphaGenus}
 Genera.alpha <- diversity(Genera.counts[Sample.filter, Genus.filter], index = 'shannon')
 boxplot(Genera.alpha ~ SampleData[Sample.filter, 'age'], xlab = 'Age', ylab = 'Shannon diversity',
-        main = 'Genus diversity', log='y', notch=TRUE)
+        main = 'Genera diversity', log='y', notch=TRUE)
+png(file='diversity.png', width = 480 * 3)
+par(mfrow=c(1,3), cex=1.5)
+boxplot(ASV.alpha ~ SampleData[Sample.filter, 'age'], xlab='Age', ylab='Shannon diversity',
+        main = 'ASV diversity', log='y', notch=TRUE)
+boxplot(ASV.pd ~ SampleData[Sample.filter, 'age'], xlab='Age', ylab='Phylogenetic diversity',
+        main = 'ASV diversity', log='y',  notch=TRUE)
+boxplot(Genera.alpha ~ SampleData[Sample.filter, 'age'], xlab = 'Age', ylab = 'Shannon diversity',
+        main = 'Genera diversity', log='y', notch=TRUE)
+dev.off()
 ```
 
 Not only diversity is lower in late samples, but dispersion also seems lower.
@@ -167,31 +180,34 @@ of multivariate dispersions* [@Anderson2006]. Below I use both `anova()` and
 `permutest()` from the `vegan` package [@Oksanen2019].
 
 To apply these tests we can use any distance measure between samples, because
-they are turned into principal coordinates. Let's first use a simple $\beta$
-diversity metric based on presence/absence data. Since it does not use abundance,
-ther is no need to normalize the counts. But the two samples with very low counts,
-E31D and L35C, could still introduce some noise.
+they are turned into principal coordinates. If using simple $\beta$ diversity
+metrics based on presence/absence data (those available in the `betadiver()`
+function), a curious result emerges: only when using ASVs, and not if using
+genera (or any other taxonomic level) the $\beta$ diversity is higher early
+than late in life (not shown). That is quite counterintuitive, and after looking
+deeper into it I realized the problem was in the distance metrics that do not
+use quantitative data. The problem persists even if taking phylogeny into account
+with the UniFrac distance, which also ignores the taxa abundances. There actually
+is good reason to use other distance measures more popular among ecologists, such
+as the Bray-Curtis dissimilarity. Because abundances are very skewed, Euclidean
+distances are not appropriate. I do not normalize counts, but I do remove samples
+E31D and L35C, with very low counts.
 
 ```{r betadiver}
-SimDist <- betadiver(Ar[Sample.filter, ASV.filter], method='sim')
-stopifnot(all.equal(labels(SimDist), rownames(SampleData[Sample.filter,])))
-anova(betadisper(SimDist, SampleData[Sample.filter, 'age']))
-permutest(betadisper(SimDist, SampleData[Sample.filter, 'age']))
-plot(betadisper(SimDist, SampleData[Sample.filter, 'age']))
-boxplot(betadisper(SimDist, SampleData[Sample.filter, 'age']), notch=TRUE, xlab='Age')
+BrayDist <- vegdist(Ar[Sample.filter, ASV.filter], method='bray')
+stopifnot(all.equal(labels(BrayDist), rownames(SampleData[Sample.filter,])))
+anova(betadisper(BrayDist, SampleData[Sample.filter, 'age']))
+permutest(betadisper(BrayDist, SampleData[Sample.filter, 'age']))
+plot(betadisper(BrayDist, SampleData[Sample.filter, 'age']))
+boxplot(betadisper(BrayDist, SampleData[Sample.filter, 'age']), notch=TRUE, xlab='Age')
 ```
 
 These results confirm that $beta$ diversity is higher early than late in life.
 That is, the ASV turnover is higher early than late in life, among samples.
-
-Note, however, that I did not use a phylogenetic beta diversity. Taking phylogenetic
-distances among ASVs into account was necessary to notice a difference in $\alpha$
-diversity between early and late life samples. Should I expect the difference
-in $\beta$ diversity also to be larger when using a phylogenetic $\beta$
-diversity?
-
-As a phylogenetic $\beta$ diversity, the UniFrac dissimilarity measure is
-popular in microbial ecology. It is implemented in `picante`. It requires
+However, when dealing with $\alpha$ diversity, I dismissed diversity measures
+of ASV data when not using phylogenetic information. Let's see what happens
+when using phylogenetic information. I use the generalized UniFrac distances
+[@Chen2012], which allow for different ways to weight abundance. It requires
 the tree to be rooted. To root the tree I use as outgroup the small, monophyletic
 group of Bacteroidetes.
 
@@ -202,64 +218,31 @@ RootedTree <- root(fitGTR$tree,
                    outgroup = Bacteroidetes,
                    resolve.root = TRUE)
 
-UniFracDist <- unifrac(Ar[Sample.filter, ASV.filter], RootedTree)
-stopifnot(all.equal(labels(UniFracDist), rownames(SampleData[Sample.filter,])))
-anova(betadisper(UniFracDist, SampleData[Sample.filter, 'age'], add=TRUE))
-permutest(betadisper(UniFracDist, SampleData[Sample.filter, 'age'], add=TRUE))
-plot(betadisper(UniFracDist, SampleData[Sample.filter, 'age'], add=TRUE))
-boxplot(betadisper(UniFracDist, SampleData[Sample.filter, 'age'], add=TRUE),
+unifracs <- GUniFrac(Ar[Sample.filter, ASV.filter], RootedTree, alpha=c(0, 0.5, 1))$unifracs
+UFw <- as.dist(unifracs[, , 'd_1'])   # weighted UniFrac
+UFu <- as.dist(unifracs[, , 'd_UW'])  # unweighted UniFrac
+UFv <- as.dist(unifracs[, , 'd_VAW']) # variance-adjusted UniFrac
+UF0 <- as.dist(unifracs[, , 'd_0'])   # GUniFrac with alpha 0
+UF5 <- as.dist(unifracs[, , 'd_0.5']) # GUniFrac with alpha 0.5
+
+stopifnot(all.equal(labels(UFw), rownames(SampleData[Sample.filter,])))
+anova(betadisper(UFw, SampleData[Sample.filter, 'age'], add=TRUE))
+permutest(betadisper(UFw, SampleData[Sample.filter, 'age'], add=TRUE))
+plot(betadisper(UFw, SampleData[Sample.filter, 'age'], add=TRUE))
+boxplot(betadisper(UFw, SampleData[Sample.filter, 'age'], add=TRUE),
         notch=TRUE, xlab='Age')
+
+png(filename='beta.png', width=480*3)
+par(mfrow=c(1,3), cex=1.2)
+   plot(betadisper(UFu, SampleData[Sample.filter, 'age'], add=TRUE),
+        sub='', main = 'Unweighted UniFrac')
+   plot(betadisper(UF0, SampleData[Sample.filter, 'age'], add=TRUE),
+        sub='', main = 'Generalised UniFrac, alpha = 0')
+   plot(betadisper(UF5, SampleData[Sample.filter, 'age'], add=TRUE),
+        sub='', main = 'Generalised UniFrac, alpha = 0.5')
+par(mfrow=c(1,1))
+dev.off()
 ```
-
-Surprisingly, when using phylogenetic $\beta$ diversity, there is no
-significant difference between early and late samples. How can this be
-explained, if the opposite was true with non-phylogenetic metrics? This result
-seems to imply that early samples differ in presence/absence of potentially
-many but phylogenetically equivalent ASVs; whereas late-in-life samples,
-must tend to differ in the presence or absence of deeper lineages, to the
-point of compensating their overall more similar composition.
-
-The `vegan` package offers `treedist()` to estimate phylogenetic beta
-diversity. This requires hierarchical clustering of species that cannot
-be obtained from a phylogenetic tree unless it's ultrametric. One way to
-make the tree ultrametric would be to calibrate it, and turn it into a
-time-tree. The `ape` package offers the 'chronos()` function for that. I
-follow the [phylobotanist](http://phylobotanist.blogspot.com/2018/04/time-calibrated-or-at-least-ultrametric.html) to make the tree ultrametric by setting the age of the
-root. I tried to run the code below to get an alternative measure of
-phylogenetic beta diversity. However, the `treedist()` function produced
-all zero distances among samples, and I don't know why.
-
-```{r timetree, eval=FALSE}
-# The process of making the tree ultrametric is slow.
-if (file.exists('TimeTree.RData')) {
-  load('TimeTree.RData')
-} else {
-  myCalibration <- makeChronosCalib(RootedTree, node='root', age.max=50)
-  TimeTree <- chronos(RootedTree, lambda=1, model='correlated',
-                      calibration = myCalibration, control = chronos.control())
-  save(TimeTree, file='TimeTree.RData')
-}
-TreeDist <- treedist(Ar[Sample.filter, ASV.filter], as.hclust(TimeTree))
-stopifnot(all.equal(labels(TreeDist), rownames(SampleData[Sample.filter,])))
-anova(betadisper(TreeDist, SampleData[Sample.filter, 'age']))
-permutest(betadisper(TreeDist, SampleData[Sample.filter, 'age']))
-plot(betadisper(TreeDist, SampleData[Sample.filter, 'age']))
-boxplot(betadisper(TreeDist, SampleData[Sample.filter, 'age']))
-```
-
-Beta diversity can also be explored using genera.
-
-```{r betaGenus}
-Genera.SimDist <- betadiver(Genera.counts[Sample.filter, Genus.filter], method='sim')
-stopifnot(all.equal(labels(Genera.SimDist), rownames(SampleData[Sample.filter,])))
-anova(betadisper(Genera.SimDist, SampleData[Sample.filter, 'age']))
-permutest(betadisper(Genera.SimDist, SampleData[Sample.filter, 'age']))
-plot(betadisper(Genera.SimDist, SampleData[Sample.filter, 'age']))
-boxplot(betadisper(Genera.SimDist, SampleData[Sample.filter, 'age']), notch=TRUE, xlab='Age')
-```
-
-While still an unexpected result, it was expected that genus-based test would
-produce the same result as the one based on phylogenetic diversity.
 
 ## Test of homogeneity among isolines
 
@@ -270,19 +253,22 @@ isolines twice: first using early samples, and then late ones.
 ```{r interaction}
 isEarly <- SampleData$age == 'Early'
 isLate  <- SampleData$age == 'Late'
-EarlySimDist <- betadiver(Ar[isEarly & Sample.filter, ASV.filter], method='sim')
-LateSimDist  <- betadiver(Ar[isLate & Sample.filter,  ASV.filter], method='sim')
-anova(betadisper(EarlySimDist, SampleData[isEarly & Sample.filter, 'isoline']))
-permutest(betadisper(EarlySimDist, SampleData[isEarly & Sample.filter, 'isoline']))
-plot(betadisper(EarlySimDist, SampleData[isEarly & Sample.filter, 'isoline']))
-boxplot(betadisper(EarlySimDist, SampleData[isEarly & Sample.filter, 'isoline']),
-        xlab='Isoline', main='Early samples, Simpson distance')
+EarlyDist <- as.dist(GUniFrac(Ar[isEarly & Sample.filter, ASV.filter],
+                              RootedTree, alpha=0)$unifracs[,,'d_0'])
+LateDist  <- as.dist(GUniFrac(Ar[isLate & Sample.filter,  ASV.filter],
+                              RootedTree, alpha=0)$unifracs[,,'d_0'])
 
-anova(betadisper(LateSimDist, SampleData[isLate & Sample.filter, 'isoline']))
-permutest(betadisper(LateSimDist, SampleData[isLate & Sample.filter, 'isoline']))
-plot(betadisper(LateSimDist, SampleData[isLate & Sample.filter, 'isoline']))
-boxplot(betadisper(LateSimDist, SampleData[isLate & Sample.filter, 'isoline']),
-        xlab='Isoline', main='Late samples, Simpson distance')
+anova(betadisper(EarlyDist, SampleData[isEarly & Sample.filter, 'isoline']))
+permutest(betadisper(EarlyDist, SampleData[isEarly & Sample.filter, 'isoline']))
+plot(betadisper(EarlyDist, SampleData[isEarly & Sample.filter, 'isoline']))
+boxplot(betadisper(EarlyDist, SampleData[isEarly & Sample.filter, 'isoline']),
+        xlab='Isoline', main='Early samples, Generalised UniFrac, alpha=0')
+
+anova(betadisper(LateDist, SampleData[isLate & Sample.filter, 'isoline']))
+permutest(betadisper(LateDist, SampleData[isLate & Sample.filter, 'isoline']))
+plot(betadisper(LateDist, SampleData[isLate & Sample.filter, 'isoline']))
+boxplot(betadisper(LateDist, SampleData[isLate & Sample.filter, 'isoline']),
+        xlab='Isoline', main='Late samples, Generalised UniFrac, alpha=0')
 ```
 
 The nice thing of the PCoA plots above is that I can see the variation
@@ -301,16 +287,16 @@ homogeneity performed above is that now I will be correlating the actual
 position (not just the dispersions) of samples in the multidimensional
 ASV space with their attributes. It is quite similar to a constrained
 ordination analysis, like redundancy analysis. But in contrast to my
-previous attempts to run rundancy analyses, here I focus in explaining
+previous attempts to run redundancy analyses, here I focus in explaining
 microbiome compositions, rather than using them to explain physiological
 variation in the hosts.
 
 ```{r adonis2}
 # No need to save the results
-adonis2(SimDist ~ age * isoline + seqrun, data = SampleData[Sample.filter,])
-adonis2(UniFracDist ~ age * isoline + seqrun, data = SampleData[Sample.filter,])
+adonis2(UF0 ~ age * isoline + seqrun, data = SampleData[Sample.filter,], by='terms')
+adonis2(UF5 ~ age * isoline + seqrun, data = SampleData[Sample.filter,], by='terms')
 adonis2(Ar[Sample.filter, ASV.filter] ~ age * isoline + seqrun,
-        data = SampleData[Sample.filter,])
+        data = SampleData[Sample.filter,], by='terms')
 ```
 
 Results from different distance measures are quite equivalent: the isoline
@@ -350,7 +336,10 @@ using all information available, and only then I select the isolines for which
 we have microbiome data and the variables of interest.
 
 ```{r LH, message=FALSE}
+LH$LateRS <- LH$EarlyRS - LH$Rsen
+#LH <- LH[,-which(names(LH) %in% 'Rsen')]
 LHc <- apply(LH, 2, function(x) (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE))
+set.seed(1007)
 LHc.imp <- mice(LHc, m=10)
 LH.all <- complete(LHc.imp, action='all')
 validIsolines  <- row.names(EA)
@@ -467,17 +456,37 @@ TermUsage
 ```
 
 Finally, I fit in all imputated datasets the same model with the
-terms that got selected in at least 9 of those replicates.
+terms that got selected in at least 8 of those replicates.
 
 ```{r finalModel, fig.height=10, fig.width=10}
-UsedTerms <- names(TermUsage[TermUsage > 8])
+UsedTerms <- names(TermUsage[TermUsage >= 7])
 RDA <- lapply(LH.all, function(lh) rda(lh ~ ., data=Predictors[,UsedTerms]))
 sapply(RDA, function(x) summary(x)$constr.chi / summary(x)$tot.chi)
+i <- 6
 par(mfrow=c(2,2))
-plot(RDA[[1]], choice=c(1,2), type='text', scaling=2)
-plot(RDA[[1]], choice=c(3,2), type='text', scaling=2)
-plot(RDA[[1]], choice=c(1,3), type='text', ylim=c(2, -2), scaling=2)
+plot(RDA[[i]], choice=c(1,2), type='text', scaling=2,
+     xlab=sprintf("RDA1 %.1f%%", 100 * summary(eigenvals(RDA[[1]]))[2,1]),
+     ylab=sprintf("RDA2 %.1f%%", 100 * summary(eigenvals(RDA[[1]]))[2,2]))
+plot(RDA[[i]], choice=c(3,2), type='text', scaling=2,
+     xlab=sprintf("RDA3 %.1f%%", 100 * summary(eigenvals(RDA[[1]]))[2,3]),
+     ylab=sprintf("RDA2 %.1f%%", 100 * summary(eigenvals(RDA[[1]]))[2,2]))
+plot(RDA[[i]], choice=c(1,3), type='text', ylim=c(2, -2), scaling=2,
+     xlab=sprintf("RDA1 %.1f%%", 100 * summary(eigenvals(RDA[[1]]))[2,1]),
+     ylab=sprintf("RDA3 %.1f%%", 100 * summary(eigenvals(RDA[[1]]))[2,3]))
 par(mfrow=c(1,1))
+
+png(filename='RDA.png', width = 480*2, height = 480*2)
+par(mfrow=c(2,2), cex=1.3)
+plot(RDA[[1]], choice=c(1,2), type='text', scaling=2,
+     xlab=sprintf("RDA1 (%.1f%%)", 100 * summary(eigenvals(RDA[[1]]))[2,1]),
+     ylab=sprintf("RDA2 (%.1f%%)", 100 * summary(eigenvals(RDA[[1]]))[2,2]))
+plot(RDA[[1]], choice=c(3,2), type='text', scaling=2,
+     xlab=sprintf("RDA3 (%.1f%%)", 100 * summary(eigenvals(RDA[[1]]))[2,3]),
+     ylab=sprintf("RDA2 (%.1f%%)", 100 * summary(eigenvals(RDA[[1]]))[2,2]))
+plot(RDA[[1]], choice=c(1,3), type='text', ylim=c(2, -2), scaling=2,
+     xlab=sprintf("RDA1 (%.1f%%)", 100 * summary(eigenvals(RDA[[1]]))[2,1]),
+     ylab=sprintf("RDA3 (%.1f%%)", 100 * summary(eigenvals(RDA[[1]]))[2,3]))
+dev.off()
 ```
 
 There are two groups of ASVs with different,
@@ -498,9 +507,14 @@ TDAceto <- as.treedata(TibbAceto)
 TDAceto <- treeio::drop.tip(TDAceto, c('A1543', 'A1910', 'A2130', 'A2172',
                                       'A1818', 'A1067', 'A1306', 'A1787', 'A1962'))
 ggtree(TDAceto, layout='circular') +
-  geom_hilight(node=MRCA(TDAceto, c('A0059','A0097','A0123')), fill='blue', alpha=0.5) +
+  geom_hilight(node=MRCA(TDAceto, c('A0059','A0064','A0097','A0123')), fill='blue', alpha=0.5) +
   geom_hilight(node=MRCA(TDAceto, c('A0065','A0071')), fill='red', alpha=0.5) +
-  geom_label2(aes(subset=modelTerms, label=label))
+  geom_cladelabel(node=MRCA(TDAceto, c('A0059','A0064','A0097','A0123')),
+                  label='A0059, A0064, A0097, A0123',
+                  offset=0.01, offset.text=0.2, hjust='center') +
+  geom_cladelabel(node=MRCA(TDAceto, c('A0065','A0071')), label='A0065, A0071',
+                  offset=0.01, offset.text=0.05, hjust='center')
+ggsave('RDAtree.png')
 ```
 
 They are clearly clustered, which suggests that several other ASV with related
@@ -508,7 +522,7 @@ sequences should also have similar effects.
 
 ```{r test}
 nodes.FA <- offspring(TDAceto, MRCA(TDAceto, c('A0065','A0071')), tiponly=TRUE)
-nodes.LS <- offspring(TDAceto, MRCA(TDAceto, c('A0059','A0097','A0123')), tiponly=TRUE)
+nodes.LS <- offspring(TDAceto, MRCA(TDAceto, c('A0059','A0064','A0097','A0123')), tiponly=TRUE)
 FunctionalAgers <- TibbAceto[TibbAceto$node %in% nodes.FA, 'label']$label
 LifeShorteners  <- TibbAceto[TibbAceto$node %in% nodes.LS, 'label']$label
 

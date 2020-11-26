@@ -2,7 +2,10 @@
 #
 # Setting variables
 # -----------------
-
+#
+# Don't forget that to run this you need to have the qiime2-2019.10 conda environment
+# activated.
+#
 # Because I will use the DATADIR variable to specify the full path of the fastq files
 # in the manifesto, I can't use relative pathways. But, for the sake of portability, I
 # do not want to use computer-specific absolute paths in the definition either. That's

@@ -148,10 +148,6 @@ fi
 # Conclusions
 # -----------
 #
-# In all there were 8,023,522 read pairs. The cleaning process removed 2.5% of
-# forward reads, and 14.7% of reverse reads, reflecting a lower quality of second
-# or reverse reads. Interestingly, the proportion of pairs both ends of which were
-# removed (9.0e-4) is higher than expected if removal was independent among ends
-# (3.7e-5). That is, quality is positively correlated between forward and reverse
-# reads.
-#
+# In all there were 8,023,522 read pairs. The cleaning process removed 0.25% of
+# forward reads, and 1.47% of reverse reads, reflecting a lower quality of second
+# or reverse reads. Everything looks fine. See the html report.

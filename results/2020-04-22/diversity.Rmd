@@ -1,0 +1,577 @@
+---
+title: "The role of gut microbiome diversity in life-history traits"
+author: "J. Ignacio Lucas Lledó"
+date: "22/4/2020"
+output: html_document
+bibliography: diversity.bib
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(picante)
+library(vegan)
+library(ggplot2)
+library(gridExtra)
+library(Biostrings)
+library(DECIPHER)  # alignment
+library(tidyr)
+library(mice) # multiple imputation
+library(lme4)
+library(plyr)
+library(e1071)
+load('../2020-02-11/taxonomy.RData')
+load('../2020-03-17/DESeq2.RData')
+LH <- read.table('../../data/LifeHistoryVar.txt', header=TRUE, row.names=1)
+
+```
+
+# Introduction
+
+Zahida encouraged me to include measures of diversity among the predictor
+variables. I will take the chance to expand the description of diversity
+estimates initated in `2020-02-27`. Back then I built a maximum likelihood
+phylogenetic tree of the amplicons, following directions form @Callahan2016.
+I want to use a tree to estimate phylogenetic diversities. But, because I
+changed the naming of amplicons since then, I will build the tree again,
+to make sure everything is compatible.
+
+I loaded the taxonomy information from `2020-02-11`, which includes the
+taxonomy assignment and the original abundance table, both using sequences
+as names.
+
+# Data preparation
+## Abundance data
+The idea is to relate diversity measures early and late in life with life-history
+variables of isolines. Thus, it makes sense to collapse the different replicates of
+the same isoline and time point. I add up those abundances, to estimate one diversity
+index per isoline and age with all the information, instead of having to average a
+few measures later. This is the same processing I did on `2020-04-13`.
+
+```{r abundance}
+dna <- DNAStringSet(row.names(taxa))
+names(dna) <- sprintf("A%04i", seq(dim(taxa)[1])) # Naming all available sequences, even filtered
+row.names(taxa)        <- names(dna)[match(row.names(taxa), dna)] 
+colnames(SeqTabNoChim) <- names(dna)[match(colnames(SeqTabNoChim), dna)]
+SampleData <- data.frame(
+  age = factor(substr(row.names(SeqTabNoChim), 1, 1), levels=c('E','L'), labels=c('Early','Late')),
+  isoline = factor(stringr::str_extract(rownames(SeqTabNoChim), "[[:digit:]]+"),
+                   levels=as.character(c(6,10,11,12,14,15,17,19,20,22,23,24,
+                                         25,26,27,28,29,30,31,33,35,36,38,39)),
+                   ordered=FALSE),
+  replicate = gsub("([EL][[:digit:]]+|.fastq.gz)", "", rownames(SeqTabNoChim)),
+  seqrun = factor(1, levels=c(1,2))
+)
+run2 <- row.names(SeqTabNoChim) %in% c('E22C.fastq.gz', 'E23A.fastq.gz', 'E25A.fastq.gz',
+                                       'E25B.fastq.gz', 'E25C.fastq.gz', 'E25D.fastq.gz',
+                                       'E26A.fastq.gz', 'E26B.fastq.gz', 'E26C.fastq.gz',
+                                       'E26D.fastq.gz', 'E27A.fastq.gz', 'E27B.fastq.gz',
+                                       'E27C.fastq.gz', 'E28A.fastq.gz', 'E28B.fastq.gz',
+                                       'E28C.fastq.gz', 'E28D.fastq.gz', 'E29A.fastq.gz',
+                                       'E29B.fastq.gz', 'E29C.fastq.gz', 'E29D.fastq.gz',
+                                       'E30A.fastq.gz', 'E30B.fastq.gz', 'E30C.fastq.gz',
+                                       'E30D.fastq.gz', 'E31A.fastq.gz', 'E31B.fastq.gz',
+                                       'E31C.fastq.gz', 'E31D.fastq.gz', 'E33A.fastq.gz',
+                                       'E33B.fastq.gz', 'E33C.fastq.gz', 'E33D.fastq.gz',
+                                       'E35A.fastq.gz', 'E35B.fastq.gz', 'E35C.fastq.gz',
+                                       'E35D.fastq.gz', 'E36A.fastq.gz', 'E36B.fastq.gz',
+                                       'E36C.fastq.gz', 'E36D.fastq.gz', 'E38A.fastq.gz',
+                                       'E38B.fastq.gz', 'E38C.fastq.gz', 'E38D.fastq.gz',
+                                       'E39A.fastq.gz', 'E39B.fastq.gz', 'E39C.fastq.gz',
+                                       'E39D.fastq.gz', 'L23B.fastq.gz', 'L24C.fastq.gz',
+                                       'L25A.fastq.gz', 'L25B.fastq.gz', 'L25C.fastq.gz',
+                                       'L25D.fastq.gz', 'L26A.fastq.gz', 'L26B.fastq.gz',
+                                       'L26C.fastq.gz', 'L26D.fastq.gz', 'L27A.fastq.gz',
+                                       'L27B.fastq.gz', 'L27C.fastq.gz', 'L28A.fastq.gz',
+                                       'L28B.fastq.gz', 'L28C.fastq.gz', 'L28D.fastq.gz',
+                                       'L29A.fastq.gz', 'L29B.fastq.gz', 'L29C.fastq.gz',
+                                       'L29D.fastq.gz', 'L30A.fastq.gz', 'L30B.fastq.gz',
+                                       'L30C.fastq.gz', 'L30D.fastq.gz', 'L31A.fastq.gz',
+                                       'L31B.fastq.gz', 'L31C.fastq.gz', 'L31D.fastq.gz',
+                                       'L33A.fastq.gz', 'L33B.fastq.gz', 'L33C.fastq.gz',
+                                       'L33D.fastq.gz', 'L35B.fastq.gz', 'L35C.fastq.gz',
+                                       'L35D.fastq.gz', 'L36A.fastq.gz', 'L36B.fastq.gz',
+                                       'L36C.fastq.gz', 'L36D.fastq.gz', 'L38A.fastq.gz',
+                                       'L38B.fastq.gz', 'L38C.fastq.gz', 'L38D.fastq.gz',
+                                       'L39A.fastq.gz', 'L39B.fastq.gz', 'L39C.fastq.gz',
+                                       'L39D.fastq.gz')
+SampleData$seqrun[run2] <- 2
+row.names(SampleData) <- row.names(SeqTabNoChim)
+
+isEarly <- SampleData$age == 'Early'
+isLate  <- SampleData$age == 'Late'
+EAr <- SeqTabNoChim[isEarly,]
+LAr <- SeqTabNoChim[isLate,]
+EarlyIsoline <- SampleData[isEarly, 'isoline']
+LateIsoline  <- SampleData[isLate,  'isoline']
+# I found it impossible to do the following with plyr:
+EA <- do.call(rbind, lapply(split(as.data.frame(EAr), EarlyIsoline), colSums))
+LA <- do.call(rbind, lapply(split(as.data.frame(LAr),  LateIsoline), colSums))
+rm(EarlyIsoline, LateIsoline, isEarly, isLate, run2)
+```
+
+On `2020-02-27`, I also filtered amplicons (by abundance) before building the
+phylogenetic tree. I realize now it was a mistake to use total abundance and
+prevalence across early and late samples as filtering criteria. Clearly, amplicons
+in early samples should be filtered independently from amplicons in late samples.
+
+On `2020-04-13`, I used a very conservative filter for the redundancy analysis,
+because two samples had very low sequence counts in one time point. Then, including
+low abundance amplicons in the ordination would make the isolines where relative
+abundances could not be measured that low stick out. That is, I had to represent
+all isolines in the same space. Here, for the moment I just want to measure diversity.
+I think diversity measures will be more accurate if I relax those filters and
+let low abundance amplicons be counted. I can raise the bar later, if needed.
+
+To be consistent with `2020-04-27`, I do not filter early and late samples
+independently, but impose prevalence and proportion thresholds globally. This
+is more conservative when testing for diversity differences between ages.
+
+```{r filtering, warning=FALSE, message=FALSE}
+# Per isoline:
+EA.prop <- t(apply(EA, 1, function(x) x / sum(x)))
+LA.prop <- t(apply(LA, 1, function(x) x / sum(x)))
+
+# Abundance per replicate:
+Ar <- SeqTabNoChim
+rm(SeqTabNoChim)
+Ar.prop <- t(apply(Ar, 1, function(x) x/sum(x)))
+Sample.filter <- rowSums(Ar) >= 3000
+
+# Data frame of amplicon traits, available for use with picante package.
+Traits <- data.frame(
+  meanProp = apply(Ar.prop[Sample.filter,], 2, mean),
+  prevalence = colSums(Ar[Sample.filter,] > 0),
+  EA.meanProp = apply(EA.prop, 2, mean),
+  LA.meanProp = apply(LA.prop, 2, mean),
+  EA.prevalence = colSums(EA > 0),
+  LA.prevalence = colSums(LA > 0)
+)
+
+MinProp <- 1.0e-5
+MinPrev <- 5
+ASV.filter <- Traits$meanProp >= MinProp & Traits$prevalence >= MinPrev
+
+p1 <- ggplot(Traits, aes(x=EA.meanProp, y=EA.prevalence)) +
+  geom_point(size=0.5) + scale_x_log10() + ggtitle('Early') +
+  geom_vline(xintercept=MinProp, color='red') + geom_hline(yintercept=MinPrev, color='red')
+p2 <- ggplot(Traits, aes(x=LA.meanProp, y=LA.prevalence)) +
+  geom_point(size=0.5) + scale_x_log10() + ggtitle('Late') +
+  geom_vline(xintercept=MinProp, color='red') + geom_hline(yintercept=MinPrev, color='red')
+grid.arrange(p1, p2, nrow=1)
+
+EA.filter <- Traits$EA.meanProp >= MinProp & Traits$EA.prevalence >= MinPrev
+LA.filter <- Traits$LA.meanProp >= MinProp & Traits$LA.prevalence >= MinPrev
+
+rm(p1,p2,MinProp,MinPrev)
+```
+
+## Alignment
+
+Aligning only filtered sequences:
+
+```{r alignment, message=FALSE, warning=FALSE}
+if (file.exists('alignment.RData')) {
+   load('alignment.RData')
+} else {
+   AmpFilt <- sort(colnames(Ar)[ASV.filter])
+   alignment <- AlignSeqs(RNAStringSet(dna[AmpFilt]))
+   BrowseSeqs(alignment, htmlFile='alignment.html', openURL=FALSE)
+   save(alignment, file='alignment.RData')
+   # Forces removal of tree upon update of alignment:
+   if (file.exists('fitGTR.RData')) file.remove('fitGTR.RData')
+}
+```
+
+## Phylogenetic tree
+
+```{r tree, message=FALSE}
+if (file.exists('fitGTR.RData')) {
+   load('fitGTR.RData')
+} else {
+   library(phangorn)
+   phang.align <- phyDat(as(DNAStringSet(alignment), "matrix"), type="DNA")
+   dm <- dist.ml(phang.align)
+   treeNJ <- NJ(dm) # Note, tip order != sequence order
+   fit = pml(treeNJ, data=phang.align)
+
+   fitGTR <- update(fit, k=4, inv=0.2)
+   fitGTR <- optim.pml(fitGTR, model="GTR", optInv=TRUE, optGamma=TRUE,
+                      rearrangement = "stochastic", control = pml.control(trace = 0))
+   detach("package:phangorn", unload=TRUE) # avoids name clashes
+   save(fitGTR, file='fitGTR.RData')
+}
+```
+
+The tree object, of class `phylo`, is in `fitGTR$tree`. I am discovering the possibilities
+of the `picante` package. I will add taxonomy information to the `Traits` data frame, in case
+I use it later.
+
+```{r traits}
+Traits$Phylum  <- taxa[match(rownames(Traits), rownames(taxa)), 'Phylum']
+Traits$Class   <- taxa[match(rownames(Traits), rownames(taxa)), 'Class']
+Traits$Order   <- taxa[match(rownames(Traits), rownames(taxa)), 'Order']
+Traits$Family  <- taxa[match(rownames(Traits), rownames(taxa)), 'Family']
+Traits$Genus   <- taxa[match(rownames(Traits), rownames(taxa)), 'Genus']
+Traits$Species <- taxa[match(rownames(Traits), rownames(taxa)), 'Species']
+```
+
+## Life history traits
+
+The matrix `LH` contains the 10 original life-history trait variables, in their
+original scales, with isoline number as row names. I will make standardized version
+for later use, without modifying the original.
+
+```{r LH, message=FALSE}
+LHc <- apply(LH, 2, function(x) (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE))
+LHc.imp <- mice(LHc, m=10)
+LH.all <- complete(LHc.imp, action='all')
+validIsolines  <- row.names(EA)
+validVariables <- c('CSearly', 'CSSlope', 'EarlyRS', 'Rsen', 'AvLF', 'ActuarialB')
+LH.all <- lapply(LH.all, function(x, f1=validIsolines, f2=validVariables) x[f1, f2])
+```
+
+# Diversity
+
+Diversity measures can be analysed by replicate, rather than by isoline. We use
+better the information that way. But I need isoline-level measures of diversity
+as well, to correlate with life-history traits.
+
+I exclude low abundance and low prevalence amplicons, according to the filter
+set up above. When working with individual replicates from both early and late
+time
+
+```{r diversity, fig.width=10}
+## By isoline
+#  ==========
+#
+# I make two d.f. and then bind them either by column or by row, to
+# make the wide and long versions, for plotting.
+Diversity.Early <- data.frame(
+  isoline   = rownames(EA),
+  PD.Early  = pd(EA[,EA.filter], fitGTR$tree, include.root = FALSE)[,1],
+  SR.Early  = pd(EA[,EA.filter], fitGTR$tree, include.root = FALSE)[,2],
+  Shannon.E = diversity(EA[,EA.filter], index='shannon'),
+  Simpson.E = diversity(EA[,EA.filter], index='simpson'),
+  SeqNum.E  = rowSums(EA[,EA.filter]),
+  batch     = sapply(split(SampleData, SampleData$isoline),
+                function(x) sum(x$seqrun == 2) / length(x$seqrun))
+)
+
+Diversity.Late <- data.frame(
+  isoline   = rownames(LA),
+  PD.Late   = pd(LA[,LA.filter], fitGTR$tree, include.root = FALSE)[,1],
+  SR.Late   = pd(LA[,LA.filter], fitGTR$tree, include.root = FALSE)[,2],
+  Shannon.L = diversity(LA[,LA.filter], index='shannon'),
+  Simpson.L = diversity(LA[,LA.filter], index='simpson'),
+  SeqNum.L  = rowSums(LA[,LA.filter]),
+  batch     = sapply(split(SampleData, SampleData$isoline),
+                function(x) sum(x$seqrun == 2) / length(x$seqrun))
+)
+
+DiverIso.wide <- cbind(Diversity.Early[,-7], Diversity.Late[,-1])
+names(Diversity.Early) <- c('isoline','PD','SR','Shannon','Simpson','SeqNum','batch')
+names(Diversity.Late)  <- c('isoline','PD','SR','Shannon','Simpson','SeqNum','batch')
+Diversity.Early$age <- factor('Early', levels=c('Early','Late'))
+Diversity.Late$age  <- factor('Late', levels=c('Early','Late'))
+DiverIso.long <- rbind(Diversity.Early, Diversity.Late)
+
+# I remove the SeqNum (sequencing effort) for sample 29, late, just for plotting.
+z <- DiverIso.wide['29', 'SeqNum.L']
+DiverIso.wide['29', 'SeqNum.L'] <- NA
+pairs(DiverIso.wide[,c(2:11)])
+DiverIso.wide['29', 'SeqNum.L'] <- z
+rm(z, Diversity.Early, Diversity.Late)
+
+## Per replicate
+#  =============
+DiverRep.long <- data.frame(
+  isoline = SampleData$isoline,
+  age     = SampleData$age,
+  PD      = numeric(length = nrow(Ar)),
+  SR      = numeric(length = nrow(Ar)),
+  Shannon = numeric(length = nrow(Ar)),
+  Simpson = numeric(length = nrow(Ar)),
+  SeqNum  = numeric(length = nrow(Ar)),
+  batch   = SampleData$seqrun
+)
+isEarly <- DiverRep.long$age %in% 'Early'
+isLate  <- DiverRep.long$age %in% 'Late'
+DiverRep.long[isEarly, 'PD'] <- pd(Ar[isEarly, EA.filter], fitGTR$tree, include.root=FALSE)[,1]
+DiverRep.long[isLate,  'PD'] <- pd(Ar[isLate,  LA.filter], fitGTR$tree, include.root=FALSE)[,1]
+DiverRep.long[isEarly, 'SR'] <- pd(Ar[isEarly, EA.filter], fitGTR$tree, include.root=FALSE)[,2]
+DiverRep.long[isLate,  'SR'] <- pd(Ar[isLate,  LA.filter], fitGTR$tree, include.root=FALSE)[,2]
+DiverRep.long[isEarly, 'Shannon'] <- diversity(Ar[isEarly, EA.filter], index='shannon')
+DiverRep.long[isLate,  'Shannon'] <- diversity(Ar[isLate,  LA.filter], index='shannon')
+DiverRep.long[isEarly, 'Simpson'] <- diversity(Ar[isEarly, EA.filter], index='simpson')
+DiverRep.long[isLate,  'Simpson'] <- diversity(Ar[isLate,  LA.filter], index='simpson')
+DiverRep.long[isEarly, 'SeqNum'] <- rowSums(Ar[isEarly, EA.filter])
+DiverRep.long[isLate,  'SeqNum'] <- rowSums(Ar[isLate, EA.filter])
+```
+
+Species richness (`SR.Early` and `SR.Late`) is correlated with phylogenetic
+distance (`PD.Early` and `PD.Late`), but not with sequencing effort (`SeqNum`).
+Measures of diversity late in life are not visibly correlated with those early 
+in life. 
+
+```{r moreDiversity, fig.width=10}
+p1 <- ggplot(DiverIso.long, aes(x=age, y=PD)) + geom_boxplot(notch=TRUE) + ylab('Phylogenetic Diversity')
+p2 <- ggplot(DiverIso.long, aes(x=age, y=SR)) + geom_boxplot(notch=TRUE) + ylab('Species richness')
+p3 <- ggplot(DiverIso.long, aes(x=age, y=Simpson)) + geom_boxplot(notch=TRUE) + ylab('Simpson index')
+p4 <- ggplot(DiverIso.long, aes(x=age, y=Shannon)) + geom_boxplot(notch=TRUE) + ylab('Shannon index')
+grid.arrange(p1,p2,p4, nrow=1)
+rm(p1, p2, p3, p4)
+```
+
+The plot above shows roughly an effect of age on diversity, that Pau Carazo
+had reported previously, using slightly different data (different amplicon
+filters, and indices estimated with a different package). What we didn't know
+is that the effect is so much more accused when using Faith's phylogenetic
+diversity. In a model:
+
+```{r diversityModel}
+m1 <- lmer(PD ~ age + (age|isoline) + (1|batch), data=DiverRep.long)
+summary(m1)
+anova(m1)
+```
+
+This indicates that not only there are fewer *species* (amplicon variants) late
+in life, but that the ones missing are quite diverse or spread phylogenetically.
+This matches the results from the differential abundance analysis performed on
+`2020-03-17`. You can see it [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-03-17/deseq2.html). In that report there is a figure with the fold-change of the amplicons
+with significantly different abundance between early and late life. Amplicons are
+distributed in the plot according to genus and color-coded according to phylum. There
+are many more genera and phyla with negative than with positive change fold.
+
+Among the amplicons with a significant fold change in `2020-03-17` there are
+several *Acetobacter* and some *Lactobacillus*.
+
+# Redundancy analysis
+
+Much can be improved from the first redundancy analysis performed on `2020-04-13`.
+Little variance in life-history traits could be explained by the main axes of
+variation in amplicon abundance. A wiser selection of explanatory variables could
+help compensate the noise and the high dimensionality in abundance data. I recall
+Pau Carazo's multiple linear regression analyses were more successful than my
+redundancy analysis. He found some effects of two ordination axes of abundance
+data on two out of three principal components of life-history variable. Neither
+diversity (Simpson index) nor *Lactobacillus* to *Acetobacter* abundance ratio
+made any important contributions to Pau's models.
+
+## Diversity and significant change
+
+Here I will use phylogenetic diversity and abundances of only some of the amplicons
+with the most significant fold change of abundance between early and late samples,
+as determined in `2020-03-17`. From those results, data frame `sigtab` contains
+the `r dim(sigtab)[1]` most significant amplicons, belonging to
+`r length(unique(sigtab$Genus))` genera and `r length(unique(sigtab$Phylum))` phyla.
+
+
+```{r rda1}
+sigtab$amplicon <- rownames(sigtab)
+# Need to remmove names attribute of variables in sigtab. Didn't find a way
+# to avoid a loop!
+for (var in colnames(sigtab)) {
+  names(sigtab[,deparse(as.name(var))]) <- NULL
+}
+MaxDifPerGenus <- ddply(sigtab, .(Genus), function(x) head(x[order(x$padj),], n=1))
+MaxDifPerGenus[,-c(7,10,13)]
+
+# Using only late abundance for all amplicons, irrespective of fold change:
+z1 <- LA.prop[, MaxDifPerGenus[MaxDifPerGenus$log2FoldChange < 0, 'amplicon']]
+z2 <- LA.prop[, MaxDifPerGenus[MaxDifPerGenus$log2FoldChange > 0, 'amplicon']]
+z1 <- z1[, colnames(z1) %in% colnames(LA)[LA.filter]]
+z2 <- z2[, colnames(z2) %in% colnames(LA)[LA.filter]]
+colnames(z1) <- paste0('L', colnames(z1))
+colnames(z2) <- paste0('L', colnames(z2))
+Selected <- cbind(z1, z2)
+
+Predictors <- as.data.frame(log10(Selected + 1.0e-07))
+Predictors$PD.Early <- DiverIso.wide$PD.Early
+Predictors$PD.Late  <- DiverIso.wide$PD.Late
+Predictors$Simpson.E <- DiverIso.wide$Simpson.E
+Predictors$Simpson.L <- DiverIso.wide$Simpson.L
+batch <- sapply(split(SampleData, SampleData$isoline),
+                function(x) sum(x$seqrun == 2) / length(x$seqrun))
+all.equal(names(batch), rownames(Predictors))
+
+RDA0    <- lapply(LH.all, function(lh) rda(lh ~ Condition(batch),
+                                        data = Predictors))
+RDA18  <- lapply(LH.all, function(lh) rda(lh ~ . + Condition(batch),
+                                           data = Predictors))
+RDA18.anova <- lapply(RDA18, anova)
+sapply(RDA18.anova, function(x) x$'Pr(>F)'[1])
+#RDA  <- lapply(RDA0, function(x) ordistep(x, RDA18[[1]], Pin=0.1, Pout=0.15, steps=100, trace=FALSE))
+#lapply(RDA, function(x) x$terms[[3]])
+```
+
+## Biodiversity and significant change, with PCA
+
+```{r rda2}
+# Use the amplicons in significant results (sigtab) as a filter for abundance data
+F <- rownames(sigtab)
+z1 <- EA.prop[,F]
+z2 <- LA.prop[,F]
+colnames(z1) <- paste0('E', colnames(z1))
+colnames(z2) <- paste0('L', colnames(z1))
+A <- cbind(z1,z2)
+A.sq <- apply(A, 2, skewness)
+B <- A[,abs(A.sq) <= 0.25]   # not transformed
+C <- sqrt(A[,abs(A.sq) >  0.25 & abs(A.sq) <= 1.0])  # sqrt-transformed
+D <- log10(A[,abs(A.sq) >  1.0] + 1.0e-07)   # log-transformed
+colnames(C) <- paste0('sqrt.',colnames(C))
+colnames(D) <- paste0('log.', colnames(D))
+AT <- cbind(B,C,D)
+AT <- AT[, abs(apply(AT,2,skewness)) < 2]
+AT.cov <- cov.wt(AT)
+AT.pca <- princomp(AT, covmat = AT.cov, scores = TRUE)
+stopifnot(all.equal(rownames(AT.pca$scores), rownames(DiverIso.wide)))
+Predictors <- cbind(DiverIso.wide[,c('PD.Early','PD.Late','Simpson.E','Simpson.L')],
+                    AT.pca$scores[,1:17])
+RDA0 <- lapply(LH.all, function(lh) rda(lh ~ Condition(batch),
+                                        data = Predictors))
+RDAX <- lapply(LH.all, function(lh) rda(lh ~ . + Condition(batch),
+                                        data = Predictors))
+RDAX.aov <- lapply(RDAX, anova)
+sapply(RDAX.aov, function(x) x$'Pr(>F)'[1])
+#RDA <- lapply(RDA0, function(x) ordistep(x, RDAX[[1]], Pin=0.1, Pout=0.15, steps=100, trace=FALSE))
+#lapply(RDA, function(x) x$terms[[3]])
+```
+
+## Diversity and genus
+
+Here I use as predictor variables the abundances of the most frequent genera either
+early or late, and diversity measures.
+
+```{r rda3}
+z <- as.data.frame(t(EA.prop[,EA.filter | LA.filter]))
+z$Genus <- taxa[rownames(z),'Genus']
+sum(is.na(z$Genus))
+GenPropE <- sapply(split(z[,1:24], z$Genus), function(x) colSums(x))
+GeneraE <- names(sort(colSums(GenPropE), decreasing=TRUE)[1:19])
+
+z <- as.data.frame(t(LA.prop[,EA.filter | LA.filter]))
+z$Genus <- taxa[rownames(z), 'Genus']
+sum(is.na(z$Genus))
+GenPropL <- sapply(split(z[,1:24], z$Genus), function(x) colSums(x))
+GeneraL <- names(sort(colSums(GenPropL), decreasing=TRUE)[1:19])
+
+stopifnot(all.equal(rownames(GenPropL), rownames(DiverIso.wide)),
+          all.equal(rownames(GenPropE), rownames(DiverIso.wide)))
+PredictorsE <- as.data.frame(cbind(PD.Early = DiverIso.wide$PD.Early,
+                                   Simpson.E = DiverIso.wide$Simpson.E,
+                                   log10(GenPropE[,colnames(GenPropE) %in% GeneraE] + 1.0e-6)))
+PredictorsE <- PredictorsE[, abs(sapply(PredictorsE, skewness)) < 1.5]
+names(PredictorsE) <- paste0(names(PredictorsE), '.E')
+PredictorsL <- as.data.frame(cbind(PD.Late = DiverIso.wide$PD.Late,
+                                   Simpson.L = DiverIso.wide$Simpson.L,
+                                   log10(GenPropL[,colnames(GenPropL) %in% GeneraL] + 1.0e-6)))
+PredictorsL <- PredictorsL[, abs(sapply(PredictorsL, skewness)) < 1.5]
+names(PredictorsL) <- paste0(names(PredictorsL), '.L')
+RDA0 <- lapply(LH.all, function(lh) rda(lh ~ Condition(batch),
+                                        data = PredictorsL))
+RDAX <- lapply(LH.all, function(lh) rda(lh ~ . + Condition(batch),
+                                        data = PredictorsL))
+RDAX.anova <- lapply(RDAX, anova)
+sapply(RDAX.anova, function(x) x$'Pr(>F)'[1])
+RDA  <- lapply(RDA0, function(x) ordistep(x, RDAX[[1]], Pin=0.1, Pout=0.15, steps=100, trace=FALSE))
+lapply(RDA, function(x) x$terms[[3]])
+
+
+```
+
+# Class
+
+```{r rda4}
+z <- as.data.frame(t(EA.prop[,EA.filter | LA.filter]))
+z$Class <- taxa[rownames(z),'Class']
+sum(is.na(z$Class))
+ClassPropE <- sapply(split(z[,1:24], z$Class), function(x) colSums(x))
+ClassE <- names(sort(colSums(ClassPropE), decreasing=TRUE))
+
+z <- as.data.frame(t(LA.prop[,EA.filter | LA.filter]))
+z$Class <- taxa[rownames(z), 'Class']
+sum(is.na(z$Class))
+ClassPropL <- sapply(split(z[,1:24], z$Class), function(x) colSums(x))
+ClassL <- names(sort(colSums(ClassPropL), decreasing=TRUE)[1:19])
+
+stopifnot(all.equal(rownames(ClassPropL), rownames(DiverIso.wide)),
+          all.equal(rownames(ClassPropE), rownames(DiverIso.wide)))
+PredictorsE <- as.data.frame(cbind(PD.Early = DiverIso.wide$PD.Early,
+                                   Simpson.E = DiverIso.wide$Simpson.E,
+                                   log10(ClassPropE[,colnames(ClassPropE) %in% ClassE] + 1.0e-7)))
+PredictorsE <- PredictorsE[, abs(sapply(PredictorsE, skewness)) < 1.5]
+names(PredictorsE) <- paste0(names(PredictorsE), '.E')
+PredictorsL <- as.data.frame(cbind(PD.Late = DiverIso.wide$PD.Late,
+                                   Simpson.L = DiverIso.wide$Simpson.L,
+                                   log10(ClassPropL[,colnames(ClassPropL) %in% ClassL] + 1.0e-7)))
+#PredictorsL <- PredictorsL[, abs(sapply(PredictorsL, skewness)) < 1.5]
+names(PredictorsL) <- paste0(names(PredictorsL), '.L')
+RDA0 <- lapply(LH.all, function(lh) rda(lh ~ Condition(batch),
+                                        data = PredictorsL))
+RDAX <- lapply(LH.all, function(lh) rda(lh ~ . + Condition(batch),
+                                        data = PredictorsL))
+RDAX.anova <- lapply(RDAX, anova)
+sapply(RDAX.anova, function(x) x$'Pr(>F)'[1])
+#RDA  <- lapply(RDA0, function(x) ordistep(x, RDAX[[1]], Pin=0.1, Pout=0.15, steps=100, trace=FALSE))
+#lapply(RDA, function(x) x$terms[[3]])
+```
+
+## Strong abundance filter and diversity
+
+```{r rda5, message=FALSE}
+F <- Traits$EA.meanProp >= 1.0e-04 & Traits$LA.meanProp >= 1.0e-04
+z1 <- EA.prop[,F]
+z2 <- LA.prop[,F]
+colnames(z1) <- paste0('E', colnames(z1))
+colnames(z2) <- paste0('L', colnames(z2))
+AF <- cbind(z1,z2)
+AF.log <- log10(AF + 1.0e-07)
+AF.log.n <- AF.log[, abs(apply(AF.log,2,skewness)) <= 1.5]
+AF.log.cov <- cov.wt(AF.log.n)
+AF.pca <- princomp(AF.log.n, covmat=AF.log.cov, scores=TRUE)
+plot(AF.pca)
+Predictors <- cbind(DiverIso.wide[,c('PD.Early','PD.Late','Simpson.E','Simpson.L')],
+                    AF.pca$scores[,1:17])
+RDA0 <- lapply(LH.all, function(lh) rda(lh ~ Condition(batch), data=Predictors))
+RDAX <- lapply(LH.all, function(lh) rda(lh ~ . + Condition(batch), data=Predictors[,1:17]))
+RDAX.aov <- lapply(RDAX, anova)
+sapply(RDAX.aov, function(x) x$'Pr(>F)'[1])
+RDA  <- lapply(RDA0, function(x) ordistep(x, RDAX[[1]], Pin=0.1, Pout=0.15, steps=100, trace=FALSE))
+lapply(RDA, function(x) x$terms[[3]])
+#RDA.aov <- lapply(RDA, anova)
+#sapply(RDA.aov, function(x) x$'Pr(>F)'[1])
+```
+
+# Conclusions
+
+I tried different ways to select the amplicon abundance-related variables that
+could carry the most information about life history traits. Unfortunately, neither
+diversity measures nor several summaries of abundance data produced significant models
+at the global level. Before exploring further options, I want to summarize the attempts,
+because, I admit, the code above is far from clear.
+
+* First, PCA of roughly filtered relative abundances must contain too much noise: it is
+impossible *a priori* to know what components may be related to life-history traits, and
+an *ad hoc* selection of apparently significant components is bound to have false positive
+results.
+* Though phylogenetic diversity index is significantly different between early and late
+samples, it does not help explain life-history variables.
+* In an attempt to reduce the noise of the data, I added up abundances of amplicons of the
+same genus (or class), following the intuition that taxa may be functionally redundant. But
+taxa abundance did not improve our predictive power.
+* I also used results from the differential abundance analysis, motivated by the idea that
+amplicons that significantly change abundance from early to late life samples may be more
+correlated with life history traits. For the moment, I used only a few amplicons (one from
+each genera represented in the significant results), in an attempt to reduce the amount of
+variables without using PCA. But it was not enough. I also used PCA, and nothing.
+
+The global test always fails, and then I have to build a model by successive addition
+or removal of terms. Even that only works if I relax the threshold p-values.
+
+```{r sessionInfo}
+save(SampleData, EA, LA, EA.prop, LA.prop, Ar, Ar.prop, Traits, EA.filter, LA.filter, fitGTR, DiverIso.wide, DiverIso.long, DiverRep.long, sigtab, taxa, file='Diversity.RData')
+sessionInfo()
+```
+
+# References
+

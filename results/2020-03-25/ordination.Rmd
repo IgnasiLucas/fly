@@ -1,0 +1,514 @@
+---
+title: "Ordination methods"
+author: "J. Ignacio Lucas Lledó"
+date: "25/3/2020"
+output: html_document
+bibliography: ordination.bib
+---
+
+```{r setup1, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup2, warning=FALSE, message=FALSE}
+library(phyloseq)
+library(ggplot2)
+library(gridExtra)
+library(ape)
+library(vegan)
+library(Biostrings)
+library(plyr)
+load('../2020-02-27/ps.RData')
+load('../2020-02-11/taxonomy.RData')
+LH <- read.table('../../data/LifeHistoryVar.txt', header=TRUE)
+ls()
+head(LH)
+```
+# Introduction
+
+On 2020-02-27, I run several ordination analyses, mostly following a tutorial, without
+much knowledge of what I was doing. Results were heavily dependent on the distance
+measure used, and also on the aggressiveness of the filtering step (not shown). A more
+detailed analysis is necessary.
+
+# Exploratory ordination analysis
+
+## NMDS with Bray-Curtis distance
+
+State of the art microbial ecology studies use Bray-Curtis distances and non-metric
+multidimensional scaling (NMDS) for exploratory analysis [@PerezCobas2015; @Rosas2018].
+NMDS is a numerical method (iterative, not analyitic). It is not based on eigenvectors
+and it does not provide a unique solution. It has the advantage of using all the variation
+in the data (not only that associated with the main axes) to distribute the objects
+(samples) in a reduced-dimension space. In such a mapping, the ranks of dissimilarities
+among pairs of objects are respected, if possible. NMDS is applied to a matrix of distances,
+where the information on the original variables is collapsed: axes cannot be interpreted in
+terms of the original variables [@Paliy2016].
+
+The Bray-Curtis distance is a popular choice among ecologists [@Ricotta2017]. It is
+computed from raw abundance data (rather than presence/absence data) and it does not
+include double zeros in the comparison, preventing samples without common species from
+looking very similar. In absolute terms, differences between abundant species contribute
+the same to the Bray-Curtis distance as (absolute) differences between rare species
+[@Legendre2012, p. 287]. But, because the same absolute difference is relatively smaller
+in an abundant than in a rare species, it can also be said that a relative difference between
+abundant species is weighted more heavily than the same relative difference among rare
+species [@Ricotta2017, p. 203].
+
+The excess of zeros in our dataset is not a concern for the Bray-Curtis distance, but the
+large scale and differences in overall abundance among samples is. If left untransformed,
+the few distances involving samples with extremely high or low coverage dominate the space,
+to the point of making the plot irrelevant. Let's take a look at the outliers:
+
+```{r outliers}
+z <- sample_sums(ps)
+summary(z)
+z[z < 3000 | z > 300000]
+rm(z)
+```
+
+Samples E31D and L35C have too few counts to make any valid inference of their composition.
+They should be removed. Samples L29C and L29D can be normalized or downsampled, just like the
+rest, to approximate an even sequencing coverage among samples. But, actually, after removing
+the two samples with the fewest counts, Bray-Curtis distance does a very good job even without
+any transformation. However, sample sizes should be standardized, to avoid ordination reflect
+primarly sample size.
+
+```{r BrayCurtisNMDS, fig.width=10}
+ps.pruned <- prune_samples(sample_sums(ps) > 3000, ps)
+medianSize <- median(sample_sums(ps.pruned))
+ps.pruned <- transformSampleCounts(ps.pruned, function(x, t=medianSize) round(t * x / sum(x)))
+ord.nmds.bray <- ordinate(ps.pruned, method="NMDS", distance="bray",
+                          trymax=1000, trace=0, autotransform=FALSE)
+ord.nmds.bray
+p1 <- plot_ordination(ps, ord.nmds.bray, color='age')
+p2 <- plot_ordination(ps, ord.nmds.bray, color='seqrun')
+grid.arrange(p1, p2, nrow=1, top='NMDS with Bray-Curtis distances')
+```
+
+The stress value is `r ord.nmds.bray$stress`. Values below 0.2 are just fine. Below 0.15
+would be much better. In any case, the main conclusion I draw from this plot is that the
+main difference between early and late microbiomes is that early ones are more dispersed.
+
+I have tried to produce an NMDS using Sørensen's distance, which is the Bray-Curtis equivalent
+for presence-absence data [@Tamas2001]. Unfortunately, the NMDS algorithm fails to converge
+in any acceptable solution when using Sørensen's distance.
+
+## Principal Coordinates Analysis (PCoA)
+
+PCoA also uses a distance matrix as input data, rather than the raw abundance values. Its
+purpose is also to display a set of objects in a reduced dimensionality space while respecting
+as much as possible the original distances among them.
+
+```{r PCoA, fig.width=10}
+ord.pcoa.bray <- ordinate(ps.pruned, method='PCoA', distance='bray', correction='cailliez')
+p1 <- plot_ordination(ps.pruned, ord.pcoa.bray, color='age')
+p2 <- plot_ordination(ps.pruned, ord.pcoa.bray, color='seqrun')
+grid.arrange(p1, p2, nrow=1, top='PCoA with Bray-Curtis distances')
+```
+
+Maybe the main difference between PCoA and NMDS is that in PCoA plot, only the variation
+along two main axes is represented, while in NMDS all the variation is squeezed in the
+two dimensions.
+
+In PCoA, we can use any distance, like Sørensen's, which lets us evaluate the effect of
+using binary (presence/absence) instead of quantitative data.
+
+```{r sorensen, fig.width=10}
+# Note that using 'sor' as the distance, the resulting ordination is completely wrong,
+# because the 'sor' distance (from betadiver) returns similarities, not dissimilarities.
+# And apparently, phyloseq's ordinate does not take that into account. Distance 't' is
+# the complement of Sørensen's index.
+ord.pcoa.sor <- ordinate(ps.pruned, method='PCoA', distance='t', correction='cailliez')
+p1 <- plot_ordination(ps.pruned, ord.pcoa.sor, color='age')
+p2 <- plot_ordination(ps.pruned, ord.pcoa.sor, color='seqrun')
+grid.arrange(p1, p2, nrow=1, top='PCoA with Sørensen distance')
+```
+Neither Bray-Curtis nor Sørensen distances are metric: they do not follow the triangle
+inequality axiom. Thus, they cannot be properly represented in a Euclidean space. Negative
+eigenvalues appear. Nevertheless, the results are both very reasonable. It is actually
+surprising that the binary Sørensen distance separate so well between early and late
+samples, and between first and second batches.
+
+Apparently, one of the original motivations for the development of PCoA was to incorporate
+phylogenetic information in the distances among communities, something that principal
+component analysis (PCA) cannot do. It does sound like a very good idea. Let's see how
+the phylogeny contributes to the PCoA plot:
+
+```{r unifrac, warning=FALSE, fig.width=10}
+ord.pcoa.unifrac  <- ordinate(ps.pruned, method='PCoA', distance='unifrac')
+ord.pcoa.wunifrac <- ordinate(ps.pruned, method='PCoA', distance='wunifrac')
+p1 <- plot_ordination(ps.pruned, ord.pcoa.unifrac, color='age')
+p2 <- plot_ordination(ps.pruned, ord.pcoa.unifrac, color='seqrun')
+p3 <- plot_ordination(ps.pruned, ord.pcoa.wunifrac, color='age')
+p4 <- plot_ordination(ps.pruned, ord.pcoa.wunifrac, color='seqrun')
+grid.arrange(p1, p2, nrow=1, top='PCoA with unweighted unifrac distances')
+grid.arrange(p3, p4, nrow=1, top='PCoA with weighted unifrac distances')
+```
+
+For some reason, the *wunifrac* distance gives unstable results. In any case, the point is that
+both phylogenetic distances among amplicons and abundances have a strong influence in the
+overall ordination of samples. But up to now, the most clear distinction between early and
+late-life samples was achived with a binary distance.
+
+## The role of double absences
+
+Ecologists avoid distance measures in which common absences contribute to similarity.
+This is called 'the double zero problem' [@Legendre2012, p. 253]:
+
+> The double-zero problem shows up in ecology because of the special nature of
+> species descriptors. Species are known to have unimodal distributions along
+> environmental gradients (Whittaker, 1967). Hutchinson’s (1957) niche theory states
+> that species have ecological preferences, meaning that they are more likely to be found
+> at sites where they encounter appropriate living conditions; the distribution of a
+> species has its mode at this optimum value. A species becomes rare and eventually
+> absent as one departs from optimal conditions. If a species is present at two sites, this
+> is an indication of the similarity of these sites; but if a species is absent from two sites,
+> it may be because the two sites are both above the optimal niche value for that species,
+> or both are below, or else one site is above and the other is below that value. One
+> cannot tell which of these circumstances is the correct one.
+>
+> It is thus preferable to abstain from drawing any ecological conclusion from the
+> absence of a species at two sites. In numerical terms, this means to skip double zeros
+> altogether when computing similarity or distance coefficients using species presence-
+> absence or abundance data. Coefficients of this type are called asymmetrical because
+> they treat zeros in a different way than other values.
+
+For gut microbial communities of a single host species in laboratory conditions,
+it is hard to believe that we are sampling beyond the optimal environment of any microbial
+species. In the current setting, we probably should not expect taxa to show a unimodal
+distribution. Even across isolines, there is no *a priori* reason to think that some
+isolines offer a better environment to particular bacteria than others.
+
+In any case, the focus of the experimental design are not the causes but the consequences
+of variation in gut microbiome composition. What is considered similar or different
+depends on whether the variable is explanatory or a response. Because an absence can
+be caused by several unknown factors (e.g., either too low or too high salinity), it
+should not count as a similarity. But when assessing the consequences of an absence,
+any two absences are causaly equivalent, and they should count in the similarity measure.
+
+[@Faith1983] suggested a binary similarity measure that considers double absences as neutral,
+contributing neither to similarity nor to distance. It is defined as $C=\frac{a + 0.5d}{N}$,
+where $a$ is the number of species present in both sites, $d$ the number of double
+absences, and $N$, the total number of species. If double absences were to count just
+as much as a mismatch to distance, $C$ would turn into Russell and Rao similarity: $\frac{a}{N}$.
+On the other side, if double absences were to contribute to similarity as much as double
+presences, then $C$ would turn into the Raw similarity, $\frac{a+d}{N}$. They can
+all be easily implemented with the function `designdist()`. Corresponding distances
+are obtained subtracting similarities from 1.
+
+```{r FaithBinary, fig.width=10}
+ord.pcoa.RussellRao <- pcoa(designdist(otu_table(ps.pruned),
+                                       method = '1 - a / (a + b + c + d)',
+                                       abcd = TRUE),
+                            rn = sample_names(ps.pruned), correction = 'lingoes')
+ord.pcoa.faith      <- pcoa(designdist(otu_table(ps.pruned),
+                                       method = '1 - (a + 0.5 * d) / (a + b + c + d)',
+                                       abcd = TRUE),
+                            rn = sample_names(ps.pruned), correction = 'lingoes')
+ord.pcoa.raw        <- pcoa(designdist(otu_table(ps.pruned),
+                                       method = '1 - (a + d) / (a + b + c + d)',
+                                       abcd = TRUE),
+                            rn = sample_names(ps.pruned), correction = 'lingoes')
+p1 <- plot_ordination(ps.pruned, ord.pcoa.RussellRao, color='age')
+p2 <- plot_ordination(ps.pruned, ord.pcoa.RussellRao, color='seqrun')
+p3 <- plot_ordination(ps.pruned, ord.pcoa.faith, color='age')
+p4 <- plot_ordination(ps.pruned, ord.pcoa.faith, color='seqrun')
+p5 <- plot_ordination(ps.pruned, ord.pcoa.raw, color='age')
+p6 <- plot_ordination(ps.pruned, ord.pcoa.raw, color='seqrun')
+grid.arrange(p1, p2, nrow=1, top='PCoA with Russell-Rao distance. Double absences as mismatches')
+grid.arrange(p3, p4, nrow=1, top='PCoA with Faith distance. Double absences as neutral')
+grid.arrange(p5, p6, nrow=1, top='PCoA with Raw distance. Double absences as double presences')
+```
+
+The Raw distances produced some negative eigenvalues and triggered the correction.
+That may be the reason why the relative eigenvalues of the axes are not specified
+in the last plot. With Raw distances, the relative eigenvalue of axis 1 is
+`r sprintf("%.2f %%", ord.pcoa.raw$values[1,'Rel_corr_eig'])`, and that for axis
+2 is `r sprintf("%.2f %%", ord.pcoa.raw$values[2, 'Rel_corr_eig'])`.
+
+@Tamas2001 generalize several distance measures that take absences into account from
+the binary to the quantitative scale. Their genaralization of the binary distance defined
+by D.P. Faith in 1983, called *C* above, can help us reveal the effect of doble absences
+in our data set. The index is a similarity and is given by equation 9b in @Tamas2001:
+
+$FA2q_{jk} = \frac{\sum_{i=1}^n min(x_{ij}, x_{ik}) + 0.5\sum_{i=1}^n (\max_j(x_{ij}) - \max(x_{ij},x_{ik}))}{\sum_{i=1}^n\max_j(x_{ij})}$
+
+Unfortunately, the `designdist()` function does not allow a direct implementation of
+this similarity index. I use my own implementation below. I make the 0.5 factor variable
+to obtain quantitative analogs of Raw and Russell and Rao distances.
+
+```{r Faith2Q, fig.width=10}
+Faith2q <- function(x, W=0.5){
+  maxj <- apply(x, 2, max)  # vector of maximum abundances species achieve across sites.
+  d <- matrix(0, nrow=nrow(x), ncol=nrow(x))  # comparing rows, assumed to be 'sites'
+  for (j in 2:nrow(x)) {
+    for (i in 1:(j-1)) {
+      d[j,i] <- 1 - 
+        (sum(pmin.int(x[i,], x[j,])) + W * sum(maxj - pmax.int(x[i,], x[j,]))) / sum(maxj)
+    }
+  }
+  return(as.dist(d))
+}
+ord.pcoa.faith2qW0 <- pcoa(Faith2q(otu_table(ps.pruned), W=0),
+                         rn=sample_names(ps.pruned), correction='lingoes')
+ord.pcoa.faith2qW05 <- pcoa(Faith2q(otu_table(ps.pruned), W=0.5),
+                            rn=sample_names(ps.pruned), correction='lingoes')
+ord.pcoa.faith2qW1 <- pcoa(Faith2q(otu_table(ps.pruned), W=1),
+                           rn=sample_names(ps.pruned), correction='lingoes')
+p1 <- plot_ordination(ps.pruned, ord.pcoa.faith2qW0, color='age')
+p2 <- plot_ordination(ps.pruned, ord.pcoa.faith2qW0, color='seqrun')
+p3 <- plot_ordination(ps.pruned, ord.pcoa.faith2qW05, color='age')
+p4 <- plot_ordination(ps.pruned, ord.pcoa.faith2qW05, color='seqrun')
+p5 <- plot_ordination(ps.pruned, ord.pcoa.faith2qW1, color='age')
+p6 <- plot_ordination(ps.pruned, ord.pcoa.faith2qW1, color='seqrun')
+grid.arrange(p1, p2, nrow=1, top='PCoA with quantitative Rusell-Rao distance. Double absences as mismatches')
+grid.arrange(p3, p4, nrow=1, top='PCoA with quantitative Faith distance, with double absences neutral')
+grid.arrange(p5, p6, nrow=1, top='PCoA with quantitative Raw distance, with double absences as double presences')
+```
+
+Axes in the last plot, for quantitative version of Raw distance, have 
+`r sprintf("%.2f", ord.pcoa.faith2qW1$values[1,'Rel_corr_eig'])` and
+`r sprintf("%.2f %%", ord.pcoa.faith2qW1$values[2, 'Rel_corr_eig'])` relative
+eigenvalues.
+
+# Redundancy analysis
+
+Ordination analyses are a set of multivariate methods that can be classified in three
+main groups, according to their main purpose: exploratory, interpretative and
+discriminatory methods [@Paliy2016]. 
+
+In our model, microbiome composition is but a predictor variable of life-history
+variables related to fitness and measured on isolines. To be more precise, for every
+isoline we have measured two microbiome compositions (with replicates): one early and
+one late in life. They are expected to be correlated, but different, and both may
+contribute to explain life-history traits. The main question is to what extent microbiome
+composition influences life-history traits, and how. This is not an exploratory
+analysis, but an interpretative one, in which we use a large set of variables (taxa
+abundances) to try to explain part of the variation in life-history traits.
+
+A redundancy analysis (RDA in the literature) seems to be the best choice, although
+multivariate versions of generalized linear models (GLM) are also a possibility [@Paliy2016].
+The `vegan` package includes an `rda()` function, that takes community data as the
+presumed response variables, and expects environmental data as the explanatory ones.
+That's the typical usage in ecology, and also microbial ecology [@Zhang2012, e.g.].
+But our goal is the reverse: to explain isoline (community-level) properties by their
+microbiome composition. 
+
+## Standardization of response variables
+
+@Legendre2012 recommends to standardize the response variables to make interpretation
+easier. I create a new data frame `Y` with the standardized variables, using only values for
+the isolines for which we also have microbiome data. 
+
+```{r Y, fig.width=10, fig.height=10}
+validIsolines <- as.numeric(levels(sample_data(ps.pruned)$isoline))
+LH <- LH[match(validIsolines, LH$Isoline),]
+Y <- data.frame(isoline = LH$Isoline)
+Y$AvLF    <- (LH$AvLF       - mean(LH$AvLF,       na.rm=TRUE)) / sd(LH$AvLF,       na.rm=TRUE)
+Y$F1qual  <- (LH$F1quality  - mean(LH$F1quality,  na.rm=TRUE)) / sd(LH$F1quality,  na.rm=TRUE)
+Y$AvCS    <- (LH$AvCS       - mean(LH$AvCS,       na.rm=TRUE)) / sd(LH$AvCS,       na.rm=TRUE)
+Y$CSearly <- (LH$CSearly    - mean(LH$CSearly,    na.rm=TRUE)) / sd(LH$CSearly,    na.rm=TRUE)
+Y$CSlate  <- (LH$CSlate     - mean(LH$CSlate,     na.rm=TRUE)) / sd(LH$CSlate,     na.rm=TRUE)
+Y$CSslope <- (LH$CSSlope    - mean(LH$CSSlope,    na.rm=TRUE)) / sd(LH$CSSlope,    na.rm=TRUE)
+Y$CSexp   <- (LH$CSexp      - mean(LH$CSexp,      na.rm=TRUE)) / sd(LH$CSexp,      na.rm=TRUE)
+Y$EarlyRS <- (LH$EarlyRS    - mean(LH$EarlyRS,    na.rm=TRUE)) / sd(LH$EarlyRS,    na.rm=TRUE)
+Y$Rsen    <- (LH$Rsen       - mean(LH$Rsen,       na.rm=TRUE)) / sd(LH$Rsen,       na.rm=TRUE)
+Y$ActuarB <- (LH$ActuarialB - mean(LH$ActuarialB, na.rm=TRUE)) / sd(LH$ActuarialB, na.rm=TRUE)
+par(mfrow=c(4,3))
+  qqnorm(Y$AvLF,    main = 'AvLF')
+  qqnorm(Y$F1qual,  main = 'F1qual')
+  qqnorm(Y$AvCS,    main = 'AvCS')
+  qqnorm(Y$CSearly, main = 'CSearly')
+  qqnorm(Y$CSlate,  main = 'CSlate')
+  qqnorm(Y$CSslope, main = 'CSslope')
+  qqnorm(Y$CSexp,   main = 'CSexp')
+  qqnorm(Y$EarlyRS, main = 'EarlyRS')
+  qqnorm(Y$Rsen,    main = 'Rsen')
+  qqnorm(Y$ActuarB, main = 'ActuarB')
+par(mfrow=c(1,1))
+pairs(Y[,-1])
+```
+
+## Definition of the 'objects'
+
+Clearly, the isolines are the 'objects' the properties of which we want to
+explain. But we have taxa abundance data for several replicates of each isoline
+in early and late time points. I was reluctant to combine abundance data among
+replicates, because it will collapse the biological variation among replicates.
+That's something we would not do, for example, to compare abundances among time
+points or among isolines (see `2020-03-17`). And it will probably bias our results
+here as well, because reducing 3 or 4 abundance data points to only one makes it look
+just as precise as any other, while in reality some abundances are much more variable
+than others. I don't see a way around it. The possibility of duplicating the rows
+of the `Y` matrix to match the replicates would not work. Even if that didn't
+affect the redundancy analysis (I don't know), it would still create a problem with
+the two time points. Abundance of a taxon early in life is a different variable
+from the abundance of the same taxon late in life, because their effects on the
+response variables might be different. That means I need to split the abundance
+matrix by the `age` factor, and then combine the two pieces by column, side to side.
+I cannot do that before collapsing the replicates, because not all isolines have
+the same number of replicates in the two time points. And even if they did, it would
+be wrong to match replicates from early with replicates from late in life.
+
+## Preparation of the explanatory variables
+
+I need to start over again from the original table of abundances, after the removal of
+chimeras and a light filtering in `2020-02-11`. Abundances and taxonomy information are
+stored at this stage in two matrices, `SeqTabNoChim` (with dimensions `r dim(SeqTabNoChim)`)
+and `taxa` (`r dim(taxa)`). Column names in `SeqTabNoChim` are the amplicon sequences. Row
+names are fastq file names.
+
+```{r abundances}
+# Renaming the amplicons
+dna <- DNAStringSet(row.names(taxa))
+names(dna) <- sprintf("A%04i", seq(dim(taxa)[1])) # Naming all available sequences, even filtered
+row.names(taxa)        <- names(dna)[match(row.names(taxa), dna)] 
+colnames(SeqTabNoChim) <- names(dna)[match(colnames(SeqTabNoChim), dna)]
+SampleData <- data.frame(
+  age = factor(substr(row.names(SeqTabNoChim), 1, 1), levels=c('E','L'), labels=c('Early','Late')),
+  isoline = factor(stringr::str_extract(rownames(SeqTabNoChim), "[[:digit:]]+"),
+                   levels=as.character(c(6,10,11,12,14,15,17,19,20,22,23,24,25,26,27,28,29,30,31,33,35,36,38,39)),
+                   ordered=FALSE),
+  replicate = gsub("([EL][[:digit:]]+|.fastq.gz)", "", rownames(SeqTabNoChim)),
+  seqrun = factor(1, levels=c(1,2))
+)
+run2 <- row.names(SeqTabNoChim) %in% c('E22C.fastq.gz', 'E23A.fastq.gz', 'E25A.fastq.gz',
+                                       'E25B.fastq.gz', 'E25C.fastq.gz', 'E25D.fastq.gz',
+                                       'E26A.fastq.gz', 'E26B.fastq.gz', 'E26C.fastq.gz',
+                                       'E26D.fastq.gz', 'E27A.fastq.gz', 'E27B.fastq.gz',
+                                       'E27C.fastq.gz', 'E28A.fastq.gz', 'E28B.fastq.gz',
+                                       'E28C.fastq.gz', 'E28D.fastq.gz', 'E29A.fastq.gz',
+                                       'E29B.fastq.gz', 'E29C.fastq.gz', 'E29D.fastq.gz',
+                                       'E30A.fastq.gz', 'E30B.fastq.gz', 'E30C.fastq.gz',
+                                       'E30D.fastq.gz', 'E31A.fastq.gz', 'E31B.fastq.gz',
+                                       'E31C.fastq.gz', 'E31D.fastq.gz', 'E33A.fastq.gz',
+                                       'E33B.fastq.gz', 'E33C.fastq.gz', 'E33D.fastq.gz',
+                                       'E35A.fastq.gz', 'E35B.fastq.gz', 'E35C.fastq.gz',
+                                       'E35D.fastq.gz', 'E36A.fastq.gz', 'E36B.fastq.gz',
+                                       'E36C.fastq.gz', 'E36D.fastq.gz', 'E38A.fastq.gz',
+                                       'E38B.fastq.gz', 'E38C.fastq.gz', 'E38D.fastq.gz',
+                                       'E39A.fastq.gz', 'E39B.fastq.gz', 'E39C.fastq.gz',
+                                       'E39D.fastq.gz', 'L23B.fastq.gz', 'L24C.fastq.gz',
+                                       'L25A.fastq.gz', 'L25B.fastq.gz', 'L25C.fastq.gz',
+                                       'L25D.fastq.gz', 'L26A.fastq.gz', 'L26B.fastq.gz',
+                                       'L26C.fastq.gz', 'L26D.fastq.gz', 'L27A.fastq.gz',
+                                       'L27B.fastq.gz', 'L27C.fastq.gz', 'L28A.fastq.gz',
+                                       'L28B.fastq.gz', 'L28C.fastq.gz', 'L28D.fastq.gz',
+                                       'L29A.fastq.gz', 'L29B.fastq.gz', 'L29C.fastq.gz',
+                                       'L29D.fastq.gz', 'L30A.fastq.gz', 'L30B.fastq.gz',
+                                       'L30C.fastq.gz', 'L30D.fastq.gz', 'L31A.fastq.gz',
+                                       'L31B.fastq.gz', 'L31C.fastq.gz', 'L31D.fastq.gz',
+                                       'L33A.fastq.gz', 'L33B.fastq.gz', 'L33C.fastq.gz',
+                                       'L33D.fastq.gz', 'L35B.fastq.gz', 'L35C.fastq.gz',
+                                       'L35D.fastq.gz', 'L36A.fastq.gz', 'L36B.fastq.gz',
+                                       'L36C.fastq.gz', 'L36D.fastq.gz', 'L38A.fastq.gz',
+                                       'L38B.fastq.gz', 'L38C.fastq.gz', 'L38D.fastq.gz',
+                                       'L39A.fastq.gz', 'L39B.fastq.gz', 'L39C.fastq.gz',
+                                       'L39D.fastq.gz')
+SampleData$seqrun[run2] <- 2
+row.names(SampleData) <- row.names(SeqTabNoChim)
+
+isEarly <- SampleData$age == 'Early'
+isLate  <- SampleData$age == 'Late'
+EarlyAbundance <- SeqTabNoChim[isEarly,]
+LateAbundance  <- SeqTabNoChim[isLate,]
+EarlyIsoline <- SampleData[isEarly, 'isoline']
+LateIsoline  <- SampleData[isLate,  'isoline']
+# I found it impossible to do the following with plyr:
+EA <- do.call(rbind, lapply(split(as.data.frame(EarlyAbundance), EarlyIsoline), colSums))
+LA <- do.call(rbind, lapply(split(as.data.frame(LateAbundance),  LateIsoline),  colSums))
+dim(EA)
+dim(LA)
+barplot(rowSums(EA), xlab='Isoline', main='Total abundances in early samples')
+barplot(rowSums(LA), xlab='Isoline', main='Total abundances in late samples')
+```
+
+Isolines 27 and 35 have very low counts among the early samples. If I keep them,
+I should only use the taxa that are abundant enough to have at least a
+chance of being counted in isolines 27 and 35. I will keep them for the moment,
+because I don't know if using thousands of explanatory variables is feasible,
+anyways. Plus, the more low-abundance taxa we remove, the easier should the
+normalization be.
+
+```{r filtering, fig.width=10, warning=FALSE}
+# It would not make sense to estimate proportions after filtering.
+# I transpose to keep amplicons in columns and isolines in rows
+EA.prop <- t(apply(EA, 1, function(x) x / sum(x)))
+LA.prop <- t(apply(LA, 1, function(x) x / sum(x)))
+
+AbundanceSummary <- data.frame(
+  EA.meanProp = apply(EA.prop, 2, mean),
+  LA.meanProp = apply(LA.prop, 2, mean),
+  EA.prevalence = colSums(EA > 0),
+  LA.prevalence = colSums(LA > 0)
+)
+p1 <- ggplot(AbundanceSummary, aes(x=EA.meanProp, y=EA.prevalence)) +
+  geom_point(size=0.5) + scale_x_log10() + ggtitle('Early')
+p2 <- ggplot(AbundanceSummary, aes(x=LA.meanProp, y=LA.prevalence)) +
+  geom_point(size=0.5) + scale_x_log10() + ggtitle('Late')
+grid.arrange(p1, p2, nrow=1)
+
+EA.filter <- AbundanceSummary$EA.meanProp >= 5.0e-5 & AbundanceSummary$EA.prevalence >= 5
+LA.filter <- AbundanceSummary$LA.meanProp >= 5.0e-5 & AbundanceSummary$LA.prevalence >= 5
+
+EA.prop.clean <- EA.prop[,EA.filter]
+LA.prop.clean <- LA.prop[,LA.filter]
+```
+
+```{r transformations}
+EA.cat <- EA.prop.clean
+EA.cat[EA.prop.clean <= 3.5e-6] <- 0
+EA.cat[EA.prop.clean >  3.5e-6 & EA.prop.clean <= 2.0e-4] <- 1
+EA.cat[EA.prop.clean >  2.0e-4 & EA.prop.clean <= 1.5e-3] <- 2
+EA.cat[EA.prop.clean >  1.5e-3] <- 3
+colnames(EA.cat) <- paste0('E', colnames(EA.cat))
+
+LA.cat <- LA.prop.clean
+LA.cat[LA.prop.clean <= 3.5e-6] <- 0
+LA.cat[LA.prop.clean >  3.5e-6 & LA.prop.clean <= 2.0e-4] <- 1
+LA.cat[LA.prop.clean >  2.0e-4 & LA.prop.clean <= 1.5e-3] <- 2
+LA.cat[LA.prop.clean >  1.5e-3] <- 3
+colnames(LA.cat) <- paste0('L', colnames(LA.cat))
+
+Xcat <- cbind(EA.cat, LA.cat)
+
+# This is (meant to be) the chi-square metric transformation in Legendre & Gallagher
+# (2001; eq. 7).
+EA.X2metric <- t(apply( EA, 1, function(x, A=colSums(EA)) x / (sum(x) * sqrt(A)) ))
+LA.X2metric <- t(apply( LA, 1, function(x, A=colSums(LA)) x / (sum(x) * sqrt(A)) ))
+
+# I filter after transformation, because I feel a transformation based on
+# total abundances would not be what expected after filtering reduces total
+# abundances.
+EA.X2metric <- EA.X2metric[,EA.filter]
+LA.X2metric <- LA.X2metric[,LA.filter]
+colnames(EA.X2metric) <- paste0('E', colnames(EA.X2metric))
+colnames(LA.X2metric) <- paste0('L', colnames(LA.X2metric))
+X2metric <- cbind(EA.X2metric)
+```
+
+Below I run the RDA analysis. I exclude the first (*isoline*) and the last
+(*ActuarB*) variables in the response matrix. The reason to remove the *ActuarB*
+is that there are two missing values there. For the moment, I exclude that variable,
+to be able to report this preliminary analysis. I leave for the next report:
+
+- Deal with the missing values in a more satisfactory way.
+- Deal with the underdeterminatinon problem (too many explanatory variables).
+- Evaluate the transformations.
+- Remove the effect of the sequencing run.
+- Interprete the results.
+
+```{r rda}
+RDA <- rda(X = Y[,-c(1,11)], Y = X2metric)
+RDA
+plot(RDA)
+```
+
+# Session information
+
+```{r sessionInfo}
+sessionInfo()
+```
+
+# References

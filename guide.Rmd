@@ -1,0 +1,92 @@
+---
+title: "Project's guide"
+author: "J. Ignacio Lucas Lledó"
+date: "10/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+This is an analysis of the gut microbiome of 24 *Drosophila melanogaster*
+inbred isolines, at two time points, early and late in life. There are
+either 3 or 4 replicates per isoline and time point, adding up to 177
+samples.
+
+The `data` folder contains the raw fastq files from two sequencing runs
+in `data/RUNGEN52_2019` and `data/RUNGEN66`.
+
+Subfolders under `results/` are named after the day an analysis started,
+and include a `README.sh` executable file which should reproduce all
+results within the folder, upon execution. Typically, from the bash shell:
+
+```{bash execution, eval=FALSE}
+./README.sh 1> readme.log 2> readme.err &
+```
+
+Where standard output and standard error are sent to local files and
+the ampersand sign, `&`, makes the process run in the background.
+
+Most recent folders include an Rmarkdown file, with the extension `.Rmd`,
+which is automatically rendered to produce an `.html` report. The Rmarkdown
+file can also be opened in an Rstudio session and run manually to generate
+the objects and be able to work with them interactively.
+
+Sometimes, `.RData` files are generated to save the most important R
+objects. These files can be loaded in subsequent sessions to import the
+results from previous folders.
+
+Note that some Rmarkdown files require parameters. To run them interactively
+use the `Knit with parameters...` option. I use options to specify system-specific
+values, such as file paths and number of processors.
+
+Below, I describe the contents and results of the main folders
+
+# 2019-12-12. Denoising
+The sequencing services had already joined forward and reverse reads,
+and we start from the joined fastq files. We use the `dada2` R package
+to clean up the sequences. First, joined reads need to be trimmed, because
+of the presence of Ns in many of thems. Trimmed reads are saved in fastq
+format in `2019-12-12/filtered`. Then, error patterns are *learned*
+and corrected, so that the resulting sequences are supposed to
+be errorless, identical to their original templates. Chimeras are also
+removed. The resulting set of clean sequences is saved in a matrix,
+named `SeqTabNoChim`, in `denoising.RData`. This matrix is 177 rows times 2683 columns.
+Row names are the fastq file names in the `2019-12-12/filtered` folder,
+corresponding to the 177 samples. Column names are the sequences
+themselves. The contents of the matrix are the number of times a sequence
+is observed in a sample.
+
+# 2020-02-11. Taxonomy attribution
+We use the `dada2` package to assign taxonomy to sequences. Taxonomy
+attribution relies on a couple of databases with known sequences. The
+result is a matrix called `taxa` with 2683 rows (the sequences) and
+7 columns. The columns specify: Kingdom, Phylum, Class, Order, Family,
+Genus, and Species. Only 16 sequences are determined at the species
+level, but most got the genus assigned.
+
+Exploration of the taxonomy results suggested the deletion of some
+unknown sequences, probably originated from inspecific hybridization
+of primers to the nuclear genome of the fly. We remove those sequences
+from `SeqTabNoChim`, which gets reduced to $177 \times 2659$.
+
+Matrices `SeqTabNoChim` and `taxa` are saved in `taxonomy.RData`.
+
+# 2020-02-27. Phyloseq analysis
+We further filter the set of sequences to remove the very rare ones.
+The new matrix of abundances is called `SeqTabClean` and contains
+1302 sequences. We build an alignment and a phylogenetic tree, which
+will inform some measures of distance among samples (communities).
+All the information (sequences, abundances, taxonomy, sample
+metadat, and phylogeny) is gathered in a `phyloseq` object. Finally,
+we plots. The ordination plots suggest that gut microbial communities
+are different between early and late time points. But the effect of
+the sequencing run is also apparent. Probably due to differences in
+average sequencing depth.
+
+The objects saved are: the alignment (`alignment`) in `alignment.RData`;
+the phylogeny (`fitGTR`), in file `fitGTR.RData`; and the main `phyloseq`
+objects (`ps` and `ps.prop`) in file `ps.RData`.

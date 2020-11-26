@@ -1,0 +1,230 @@
+---
+title: "Diversity"
+author: "J. Ignacio Lucas Lledó"
+date: "18/5/2020"
+output: html_document
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE)
+DA <- read.csv('../2020-02-27/DiversityAbundance.csv', header=TRUE, row.names=1)
+DA$isoline <- as.factor(DA$isoline)
+load('../2020-04-22/Diversity.RData')
+library(ggplot2)
+library(gridExtra)
+library(plyr)
+library(vegan)
+```
+
+On `2020-02-27` I created the CVS table `DiversityAbundance.cvs`, to share wit Zahida.
+It includes diversity estimates (Shannon and Simpson) for every sample, in addition to
+some other variables. That's all the information Zahida had to explore the relationship
+between diversity indices and age. The abundance data from which diversity indices were
+estimated had been filtered by mean early or late abundance, and by early or late prevalence.
+Only ASVs present in at least 10 samples either early or late were included. While this
+filter may be adequate for some purposes, it may not for diversity estimates. In
+addition, there is a big difference between averaging diversity indices among replicates
+and to directly estimate the diversity index of the joint replicates. The latter could be
+more representative of an isoline and age.
+
+On `2020-04-22`, I also estimated diversity indices, including phylogenetic diversity,
+and using a much softer filter, applied separately for early and late samples: minimum
+prevalence of 3 and minimum average relative abundance of $10^{-6}$.
+
+After loading both the `DiversityAbundance.csv` data (as `DA`) and the diveristy data
+from `2020-04-22` (dataframes `DiverIso.wide`, `DiverIso.long`, and `DiverRep.long`),
+I combine the information of both analysis in two new data frames: `Rep` and `Iso`,
+both in long format (with age as a factor). Letter *Z* identifies variables from the
+`DiversityAbundance.cvs` file that I shared with Zahida, and letter *I* identifies
+variables from the `2020-04-22` data set.
+
+```{r comparison, message=FALSE}
+# Assuming (after I checked) that the order of samples is the same in DA and
+# in DiverRep.long.
+Rep <- data.frame(
+  Z.shannon = DA$shannon,
+  I.shannon = DiverRep.long$Shannon,
+  Z.simpson = DA$simpson,
+  I.simpson = DiverRep.long$Simpson,
+  isoline   = DA$isoline,
+  age       = DA$age,
+  seqrun    = DA$seqrun
+)
+p1 <- ggplot(Rep, aes(x=Z.shannon, y=I.shannon)) + geom_point() + geom_smooth(method='lm') +
+  xlab('Minimum prevalence of 10') + ylab('Minimum prevalence of 3') + ggtitle('Shannon')
+p2 <- ggplot(Rep, aes(x=Z.simpson, y=I.simpson)) + geom_point() + geom_smooth(method='lm') +
+  xlab('Minimum prevalence of 10') + ylab('Minimum prevalence of 3') + ggtitle('Simpson')
+grid.arrange(p1,p2,nrow=1)
+```
+
+Once checked that the data from `DiversityAbundance.csv` is mostly equivalent to 
+the data produced later, on `2020-04-22` with a more relaxed threshold, I can
+proceed. The following step is to produce isoline and age specific summary indices,
+in a long format. I will take the average among replicates, to compare them to
+the `DiverIso.long` values, which are computed directly from isoline and age specific
+abundance data.
+
+```{r Iso, message=FALSE}
+Iso <- ddply(DA, .(age, isoline), summarize, Z.shannon = mean(shannon), Z.simpson = mean(simpson))
+stopifnot(all.equal(Iso$age, DiverIso.long$age),
+          all.equal(as.character(Iso$isoline), as.character(DiverIso.long$isoline)))
+Iso$I.shannon <- DiverIso.long$Shannon
+Iso$I.simpson <- DiverIso.long$Simpson
+p1 <- ggplot(Iso, aes(x=Z.shannon, y=I.shannon)) + geom_point() + geom_smooth(method='lm') +
+  xlab('Average among replicates, Prev. > 9') + ylab('Actual index, Prev. > 2') + ggtitle('Shannon')
+p2 <- ggplot(Iso, aes(x=Z.simpson, y=I.simpson)) + geom_point() + geom_smooth(method='lm') +
+  xlab('Average among replicates, Prev. > 9') + ylab('Actual index, Prev. > 2') + ggtitle('Simpson')
+grid.arrange(p1, p2, nrow=1)
+```
+
+Close enough. Let's work on the `DiversityAbundance.csv` data, and try to replicate 
+Zahida's results. She claims that Shannon index decreased with age, and reports an
+$F_{1,23} = 7.3943$, and $p=0.0122$. Those numbers are the same as in Pau's report, who
+claimed it was Simpson's, not Shannon's, the index significantly related with age.
+In any case, I cannot reproduce those results.
+
+The issue cannot be settled using only the data from `DiversityAbundance.cvs`. And because
+the diversity indices depend on the filtering of rare ASVs, I think it's better to use
+the relationship between diversity and minimum proportion to compare early and late samples,
+in a way similar to rarefaction curves. Because the comparison of interest is between early
+and late ages, I can just add up all samples in the same age to represent the total diversity
+early and late.
+
+```{r rarefaction}
+TotEA.prop <- colSums(EA) / sum(EA)
+TotLA.prop <- colSums(LA) / sum(LA)
+rarefaction.early <- data.frame(
+  breaks = sort(unique(round(c(TotEA.prop, TotLA.prop), 4))),
+  age = factor('Early', levels=c('Early','Late')),
+  Richness = NA,
+  Simpson = NA,
+  Shannon = NA
+)
+rarefaction.late <- data.frame(
+  breaks = rarefaction.early$breaks,
+  age = factor('Late', levels=c('Early', 'Late')),
+  Richness = NA,
+  Simpson = NA,
+  Shannon = NA
+)
+
+for (i in 1:length(rarefaction.early$breaks)) {
+  earlyFilter <- TotEA.prop >= rarefaction.early[i,'breaks']
+  lateFilter  <- TotLA.prop >= rarefaction.early[i,'breaks'] # same as rarefaction.late[i,'breaks']
+  rarefaction.early[i, 'Richness'] <- sum(earlyFilter)
+  rarefaction.late[i, 'Richness']  <- sum(lateFilter)
+  rarefaction.early[i, 'Shannon'] <- diversity(TotEA.prop[earlyFilter], index='shannon')
+  rarefaction.late[i, 'Shannon'] <- diversity(TotLA.prop[lateFilter], index='shannon')
+  rarefaction.early[i, 'Simpson'] <- diversity(TotEA.prop[earlyFilter], index='simpson')
+  rarefaction.late[i, 'Simpson'] <- diversity(TotLA.prop[lateFilter], index='simpson')
+}
+
+rarefaction <- rbind(rarefaction.early, rarefaction.late)
+rm(rarefaction.early, rarefaction.late)
+
+ggplot(rarefaction[-1,], aes(x=breaks, y=Richness, color=age)) + geom_line() +
+  xlab('Minimum frequency') + ylab('Amplicon richness') + 
+  scale_x_log10() + scale_x_reverse() + scale_y_log10()
+
+ggplot(rarefaction, aes(x=breaks, y=Shannon, color=age)) + geom_line() +
+  xlab('Minimum frequency') + ylab('Shannon index') + scale_x_reverse()
+ggsave(filename = 'Shannon_global.png')
+
+ggplot(rarefaction, aes(x=breaks, y=Simpson, color=age)) + geom_line() +
+  xlab('Minimum frequency') + ylab('Simpson index') + xlim(0.02, 0)
+
+rm(rarefaction, TotEA.prop, TotLA.prop)
+```
+
+All three plots tell the same story. The Shannon index may be the clearest one.
+The horizontal axis is reversed, to make the curve resemble a rarefaction curve:
+the more to the right, the larger the number of ASVs counted. It could represent
+an increasing sampling effort, ever finding rarer *species*.
+
+What about individual isolines? I need a dataframe with columns: isoline, age,
+shannon, simpson, richness... and minimum proportion. Let's try.
+
+```{r perIsoline, fig.width=10, fig.height=10}
+breaks <- sort(unique(round(c(EA.prop, LA.prop),4)))[-1]
+diver.early <- do.call(rbind, lapply(breaks, function(x, M=EA.prop) {
+  data.frame(minimum = rep(x, dim(M)[1]),
+             isoline = as.factor(rownames(M)),
+             age = factor('Early', levels=c('Early','Late')),
+             richness = rowSums(M >= x),
+             shannon  = apply(M, 1, function(y, MinFreq=x) diversity(y[y >= MinFreq], index='shannon')),
+             simpson  = apply(M, 1, function(y, MinFreq=x) diversity(y[y >= MinFreq], index='simpson'))
+  )
+}))
+diver.late <- do.call(rbind, lapply(breaks, function(x, M=LA.prop) {
+  data.frame(minimum = rep(x, dim(M)[1]),
+             isoline = as.factor(rownames(M)),
+             age = factor('Late', levels = c('Early', 'Late')),
+             richness = rowSums(M >= x),
+             shannon = apply(M, 1, function(y, MinFreq=x) diversity(y[y >= MinFreq], index='shannon')),
+             simpson = apply(M, 1, function(y, MinFreq=x) diversity(y[y >= MinFreq], index='simpson'))
+  )
+}))
+diver <- rbind(diver.early, diver.late)
+diver$isoline <- relevel(diver$isoline, '6')
+ggplot(diver, aes(x=minimum, y=shannon, color=age)) + geom_line() +
+  facet_wrap(~isoline) + xlab('Minimum frequency') +
+  ylab('Shannon index') + scale_x_log10() + xlim(0.02, 0.00001) + theme(axis.text.x = element_text(angle=90))
+ggsave(filename='Shannon_isoline.png')
+
+ggplot(diver, aes(x=minimum, y=simpson, color=age)) + geom_line() +
+  facet_wrap(~isoline) + xlab('Minimum frequency') +
+  ylab('Shannon index') + scale_x_log10() + scale_x_reverse()
+
+ggplot(diver, aes(x=minimum, y=richness, color=age)) + geom_line() +
+  facet_wrap(~isoline) + xlab('Minimum frequency') +
+  ylab('Shannon index') + scale_x_log10() + scale_y_log10() + scale_x_reverse()
+```
+
+It is clear that we cannot claim that diversity drops with age, at all. The opposite
+could be claimed in many isolines, and also on average, unless we focused on the most
+abundant ASVs and ignored the vast majority of low-frequency ASVs. In any case, the
+lack of a clear pattern among isolines seems at odds with other studies and with our
+own expectation to see a decline in diversity. After all, it is also evident (see results
+from 2020-04-28 [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-04-28/figures.html))
+that *Acetobacter* becomes the dominant genus, which seems to imply a marked reduction
+of diversity. The reason for this discrepancy is that I am using ASVs, not genera, as
+the sampling unit. Any two ASVs, whether they differ in one or a dozen nucleotides,
+are considered different *species*. Whereas grouping ASVs in genera removes a lot of
+that variation. That is why phylogenetic distances have such a big impact in the patterns
+of diversity (see results from `2020-04-22` [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-04-22/diversity.html)).
+
+Let's see what happens if I group the ASVs by genus.
+
+```{r genusDiver, message=FALSE}
+# I remove amplicons without genus assigned, but I don't filter amplicons by abundance.
+filter <- ! is.na(Traits$Genus)
+stopifnot(all.equal(rownames(Traits), colnames(Ar.prop)))
+z <- as.data.frame(t(Ar.prop[, filter]))
+Ar.genus <- do.call(rbind, lapply(split(z, Traits[filter, 'Genus']), colSums))
+Ar.genus <- t(Ar.genus)
+dim(Ar.genus)
+
+# Although I didn't keep rownames in DiverRep.long, samples are in the same order as
+# in SampleData, and Ar.genus. I add genus-wise diversity indices to DiverRep.long.
+
+DiverRep.long$Shannon.Genus <- diversity(Ar.genus, index='shannon')
+DiverRep.long$Simpson.Genus <- diversity(Ar.genus, index='shannon')
+p1 <- ggplot(DiverRep.long, aes(x=Shannon.Genus, y=Shannon)) + geom_point() +
+  scale_x_log10() + geom_smooth(method='lm')
+p2 <- ggplot(DiverRep.long, aes(x=Shannon.Genus, y=PD)) + geom_point() +
+  scale_x_log10() + geom_smooth(method='lm')
+grid.arrange(p1,p2, nrow=1)
+
+p1 <- ggplot(DiverRep.long, aes(x=age, y=Shannon.Genus)) + geom_boxplot(notch=TRUE) +
+  scale_y_log10() + xlab('Age') + ylab('Shannon index') + ggtitle('Genus diversity')
+p2 <- ggplot(DiverRep.long, aes(x=age, y=Shannon)) + geom_boxplot(notch=TRUE) +
+  scale_y_log10() + xlab('Age') + ylab('Shannon index') + ggtitle('ASV diversity')
+p3 <- ggplot(DiverRep.long, aes(x=age, y=Simpson.Genus)) + geom_boxplot(notch=TRUE) +
+  scale_y_log10() + xlab('Age') + ylab('Simpson index') + ggtitle('Genus diversity')
+p4 <- ggplot(DiverRep.long, aes(x=age, y=Simpson)) + geom_boxplot(notch=TRUE) +
+  scale_y_log10() + xlab('Age') + ylab('Simpson index') + ggtitle('ASV diversity')
+p5 <- grid.arrange(p2, p1, p4, p3, nrow=2)
+p5
+ggsave(filename='DiversityBoxplots.png', p5)
+```
+

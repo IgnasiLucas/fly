@@ -1,0 +1,243 @@
+---
+title: "Initial Data Exploration"
+author: "Ignasi"
+date: "25/11/2019"
+output: html_document
+---
+
+```{r setup}
+library(biomformat)
+library(tidyr)
+library(ggplot2)
+library(plyr)
+library(reactable)
+```
+
+On 2019-11-14 I imported the reads into qiime2 and compared the already merged data to the results of
+merging the clean reads with dada2 in qimme2. I decided to work from the reads that had already been
+merged by the sequencing services with a program called FLASH. Here the goal is visualize the statistics
+and main features of the dataset.
+
+# De-noised statistics
+Let's take a look first at the results of the de-noising process.
+
+```{r visualize, cache=TRUE}
+DenoisedStats <- read.table('../2019-11-14/FromMerged/stats.tsv', skip=1, 
+                            col.names=c('Sample','input','filtered','filtered.p','denoised',
+                                        'trusted','trusted.p'),
+                            colClasses=c('character', rep('numeric',6)))
+
+DenoisedStats$time <- factor(NA, levels=c('early', 'late'))
+DenoisedStats[grep("^E", DenoisedStats$Sample), 'time'] <- 'early'
+DenoisedStats[grep("^L", DenoisedStats$Sample), 'time'] <- 'late'
+m <- regexpr("[0-9]+", DenoisedStats$Sample)
+DenoisedStats$isoline <- as.factor(regmatches(DenoisedStats$Sample, m))
+DenoisedStats$excluded <- DenoisedStats$input - DenoisedStats$filtered
+DenoisedStats$notDenoised <- DenoisedStats$filtered - DenoisedStats$denoised
+DenoisedStats$untrusted <- DenoisedStats$denoised - DenoisedStats$trusted
+
+ggplot(DenoisedStats, mapping=aes(x=time, y=trusted)) + geom_violin(trim=FALSE) + geom_jitter(width=0.05) +
+  ggtitle('Number of non-chimeric reads per sample') + ylab('Number of reads')
+
+LongStats <- gather(DenoisedStats, key="Fate", value="Reads", c('trusted','untrusted','notDenoised','excluded'))
+
+ggplot(LongStats, mapping=aes(x=isoline, y=Reads, fill=Fate)) + geom_col() + facet_wrap(~time) +
+  ggtitle('Total number of reads per isoline')
+ggplot(LongStats, mapping=aes(x=Sample, y=Reads, fill=Fate)) + geom_col() +
+  ggtitle('Total number of reads per sample') + theme(axis.text.x=element_text(angle=90,size=6))
+rm(list=ls())
+```
+
+# Reproduction of qiime's visualization
+The denoising step produced a features table, with the counts of observations of every unique sequence in
+every sample. That is a rather sparse matrix, with a wide range of values. The visualization `FeatureTable.qzv`
+can be viewd in [https://view.qiime2.org/]. I can reproduce here some of it. Exporting the table from qiime
+produced a biom object, which can be loaded in R with the `biomformat` package.
+
+```{r biom, message=FALSE}
+Features <- read_biom('FeatureTable.biom')
+# This would not work if the table was too big.
+FeatDF <- as.data.frame(as.matrix(biom_data(Features)))
+SummTable <- data.frame(Metric=c('Number of samples', 'Number of features', 'Total frequency'),
+                        Sample=c(dim(FeatDF)[c(2,1)], sum(FeatDF)))
+```
+
+## Table summary
+```{r summaryTable}
+reactable(SummTable, striped=TRUE, highlight=TRUE, columns=list(
+  Metric=colDef(style=list(fontWeight='bold')),
+  Sample=colDef(format=colFormat(digits=2, separators=TRUE))))
+```
+
+## Frequency per sample
+```{r frequencyTable}
+TotalCountsPerSample <- sapply(FeatDF, sum)
+# summary() returns a table object that I cannot coerce into a data.frame without
+# turning it first into an array. I take that chance to edit row names.
+SummaryTotalCounts   <- data.frame(Frequency = array(summary(TotalCountsPerSample),
+                                                     dimnames=list(c('Minimum frequency',
+                                                                     '1st quantile',
+                                                                     'Median frequency',
+                                                                     'Mean frequency',
+                                                                     '3rd quantile',
+                                                                     'Maximum frequency'))))
+reactable(SummaryTotalCounts, striped=TRUE, highlight=TRUE, columns=list(
+  Frequency = colDef(format=colFormat(digits=2, separators=TRUE)),
+  .rownames = colDef(style=list(fontWeight='bold'))))
+```
+
+```{r histogramSamples}
+ggplot(data.frame(Freq=TotalCountsPerSample), mapping=aes(x=Freq)) +
+  geom_histogram(binwidth=14000, fill='lightblue') +
+  scale_x_continuous(breaks=c(20000,40000,60000,80000,100000,120000))+
+  geom_segment(aes(xend=Freq), y=0, yend=1, color='darkblue')+
+  theme(panel.background=element_rect(fill ='white'),
+        panel.border=element_rect(color='black', fill=NA)) +
+  xlab('Total counts per sample') +
+  ylab('Number of samples')
+```
+
+## Frequency per feature
+```{r FeatureFreq}
+TotalCountsPerFeature <- rowSums(as.matrix(biom_data(Features)))
+SummaryTotalCounts   <- data.frame(Frequency = array(summary(TotalCountsPerFeature),
+                                                     dimnames=list(c('Minimum frequency',
+                                                                     '1st quantile',
+                                                                     'Median frequency',
+                                                                     'Mean frequency',
+                                                                     '3rd quantile',
+                                                                     'Maximum frequency'))))
+reactable(SummaryTotalCounts, striped=TRUE, highlight=TRUE, columns=list(
+  Frequency = colDef(format=colFormat(digits=2, separators=TRUE)),
+  .rownames = colDef(style=list(fontWeight='bold'))))
+```
+
+This histogram of feature's frequencies uses a log-transformed coordinate, with bins having the
+same width in un-transformed scale. On the y axis, I use a square root transformation, instead
+of logarithmic, to preserve bins of frequency 0 or 1.
+
+```{r FeatureHistogram1}
+ggplot(data.frame(Freq=TotalCountsPerFeature), mapping=aes(x=Freq)) +
+  geom_histogram(fill='lightblue', bins=35, boundary=1) + # prevents Nan upon log transformation
+  coord_trans(x='log10') +
+  scale_y_sqrt() +
+  scale_x_continuous(breaks=c(1e1, 1e2, 1e3, 1e4, 1e5)) +
+  theme(panel.background=element_rect(fill='white'),
+        panel.border=element_rect(color='black', fill=NA)) +
+  xlab('Frequency per feature') + 
+  ylab('Number of features') 
+```
+
+It may be better to use an untransformed x axis.
+
+```{r FeatureHistogram2}
+ggplot(data.frame(Freq=TotalCountsPerFeature), mapping=aes(x=Freq)) +
+  geom_histogram(fill='lightblue', bins=35, boundary=0) +
+  scale_y_sqrt() +
+  theme(panel.background=element_rect(fill='white'),
+        panel.border=element_rect(color='black', fill=NA)) +
+  xlab('Frequency per feature') +
+  ylab('Number of features')
+```
+
+Let's zoom in:
+
+```{r zoomin, message=FALSE, warning=FALSE}
+ggplot(data.frame(Freq=TotalCountsPerFeature), mapping=aes(x=Freq)) +
+  geom_histogram(fill='lightblue', bins=250, boundary=0.5) +
+  scale_y_sqrt() +
+  xlim(c(0,250)) +
+  theme(panel.background=element_rect(fill='white'),
+        panel.border=element_rect(color='black', fill=NA)) +
+  xlab('Frequency per feature') +
+  ylab('Number of features')
+```
+
+The most frequent count is also the lowest: 2 per sample. This means that qiime2 applied dada2 separately on
+each sample, instead of pooling them. Pooling samples would have increased computation time, but
+also the power to detect low-frequency amplicons. I suppose it also means that any sequence
+seen only once (in a sample) is assumed to contain an error, the correction of which turns the
+sequence into its closest relative. I suspect pooling samples before error correction would
+prevent the spurious correction of some non-errors. Alternatively, it could just mean that singletons
+are by default excluded, for they can't be trusted and probably add too little information.
+
+## Sample detail
+
+```{r SampleDetail}
+reactable(data.frame(SampleID = names(TotalCountsPerSample),
+                     FeatureCount = TotalCountsPerSample,
+                     row.names=NULL),
+          striped = TRUE,
+          highlight = TRUE,
+          columns = list(
+            SampleID = colDef(name = 'Sample ID'),
+            FeatureCount = colDef(name = 'Feature Count')))
+```
+
+## Feature detail
+
+```{r FeatureDetail}
+NumSamplesIn <- rowSums(FeatDF > 0)
+reactable(data.frame(Frequency = TotalCountsPerFeature,
+                     NumSamplesIn = NumSamplesIn),
+          striped = TRUE,
+          highlight = TRUE,
+          columns = list(
+            Frequency = colDef(format = colFormat(separators=TRUE)),
+            NumSamplesIn = colDef(name = '# of Samples Observed In')))
+```
+
+# Heatmap
+We can visualize the whole data matrix as a heatmap. That may give us some insight. Note that
+I need to summarize the counts from replicates of the same isoline at the same time point. Here,
+I am plotting the mean count among replicates. I could have used the sum, even though not all
+isolines are replicated the same number of times. Anyways, the total number of reads per sample
+is very variable. That is to say I am not using any normalization here.
+
+```{r heatmap, cache=TRUE, message=FALSE, warning=FALSE}
+# I want to preserve the order of the features.
+FeatDF$feature <- factor(rownames(FeatDF), levels=unique(rownames(FeatDF)), ordered=TRUE)
+rownames(FeatDF) <- NULL
+LongFeat <- pivot_longer(FeatDF, cols=c(1:80), names_to=c("Age","Isoline","Batch"),
+                         names_pattern="([LE])([0-9]+)([A-Z]+)", values_to="Count")
+LongFeat$Isoline <- factor(LongFeat$Isoline, levels=c(24,23,22,20,19,17,15,14,12,11,10,6), ordered=TRUE)
+SummFeat <- ddply(LongFeat, .variables=c("feature", "Age", "Isoline"), summarize,
+                  MeanCount = mean(Count), SDCount=sd(Count))
+ggplot(data=SummFeat, mapping=aes(x=feature, y=Isoline, fill=MeanCount)) +
+  geom_tile() + facet_wrap(~Age) +
+  scale_fill_gradientn(trans='log', colors=terrain.colors(10), breaks=c(5,50,500,3000)) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+```
+
+# PCA
+Just to add another visualization, this time I do transform abundance to the logarithm of
+relative frequency. I impute the frequency of unobserved variants in a sample as the overall
+frequency, just to avoid missing data. There must be better ways. This plot is not to be
+taken too seriously, but it suggests something weird is happening with samples E11A, E17A and
+E19C. These are not samples with particularly low overall counts.
+
+```{r pca}
+OverallFreq <- rowSums(as.matrix(biom_data(Features)))/sum(as.matrix(biom_data(Features)))
+LongFeatTransformed <- ddply(LongFeat,
+                             .variables = c('Age','Isoline','Batch'),
+                             .fun = function(x) {
+                               Freq <- x$Count / sum(x$Count)
+                               Freq[Freq == 0] <- OverallFreq[x$feature[Freq == 0]]
+                               return(data.frame(
+                                 feature = x$feature,
+                                 Age = x$Age,
+                                 Isoline = x$Isoline,
+                                 Batch = x$Batch,
+                                 Count = x$Count,
+                                 LogFreq = log(Freq)))})
+LogFreqDF <- pivot_wider(LongFeatTransformed,
+                         id_cols=c('Age','Isoline','Batch'),
+                         names_from='feature',
+                         values_from='LogFreq')
+pca <- prcomp(LogFreqDF[4:2475], retx=TRUE, center=TRUE, scale.=TRUE)
+pcaDF <- data.frame(Age = LogFreqDF$Age,
+                    Isoline = LogFreqDF$Isoline,
+                    Name = paste(LogFreqDF$Age, LogFreqDF$Isoline, LogFreqDF$Batch, sep=''),
+                    pca$x)
+ggplot(pcaDF, mapping=aes(x=PC1, y=PC2, color=Age)) + geom_text(aes(label=Name))
+```

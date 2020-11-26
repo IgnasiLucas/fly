@@ -1,0 +1,21 @@
+---
+title: "Life history traits"
+author: "J. Ignacio Lucas Lledó"
+date: "13/6/2020"
+output: html_document
+---
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+LH <- read.table('../../data/LifeHistoryVar.txt', header=TRUE, row.names=1)
+```
+
+```{r filter, fig.width=10, fig.height=10}
+LH$LateRS <- LH$EarlyRS - LH$Rsen
+LH <- LH[, c('CSearly','CSlate','EarlyRS', 'LateRS', 'AvLF', 'ActuarialB')]
+pairs(LH)
+png(file = 'LH.png', width=960, height=960)
+  pairs(LH, cex=3, cex.labels=3, cex.axis=2)
+dev.off()
+```
+

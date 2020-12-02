@@ -8,8 +8,8 @@
 # taxonomy.Rmd file.
 
 TABSEQDATA='../2019-12-12/denoising.RData'
-SILVA_TRAINING='../../data/silva_nr_v132_train_set.fa.gz'
-SILVA_SPECIES='../../data/silva_species_assignment_v132.fa.gz'
+SILVA_TRAINING='../../data/silva_nr99_v138_train_set.fa.gz'
+SILVA_SPECIES='../../data/silva_species_assignment_v138.fa.gz'
 NUM_THREADS=12
 
 if [ ! -e $SILVA_TRAINING ]; then

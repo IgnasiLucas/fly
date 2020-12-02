@@ -145,24 +145,24 @@ plots. See the report [here](https://htmlpreview.github.io/?https://github.com/I
 
 
 ## 2020-02-11
-I use dada2 to assign taxonomy to the amplicon sequence variants. Among 2892 sequences,
-only 16 are annotated to the species level. But 2764 (96%) are annotated to the genus,
-which is quite good. There are 24 eukaryotic sequences, the annotation of which failed,
-probably because of the database not being appropriate. The rest are bacteria. This is
-The distribution of bacterial phyla (not considering abundances, but just number of variants):
+I use dada2 to assign taxonomy to the amplicon sequence variants. Among 2683 sequences,
+only 26 are annotated to the species level. But 2419 (90%) are annotated to the genus,
+which is quite good. The distribution of phyla (not considering abundances, but just number
+of variants):
 
-- Proteobacteria:        2303
-- Firmicutes:             382
-- Actinobacteria:          92
-- Bacteroidetes:           44
-- Cyanobacteria:           30
-- Verrucomicrobia:          4
-- Deinococcus-Thermus:      3
-- Fusobacteria:             3
-- Acidobacteria:            2
-- Planctomycetes:           2
+- Proteobacteria:        2122
+- Firmicutes:             369
+- Actinobacteriota:        84
+- Bacteroidota:            43
+- Cyanobacteria:           27
+- Verrucomicrobiota:        3
+- Deinococcota:             3
+- Fusobacteriota:           3
+- Acidobacteriota:          2
+- Planctomycetota:          2
+- Desulfobacterota:         2
 - Chloroflexi:              1
-- Gemmatimonadetes:         1
+- Gemmatimonadota:          1
 - Patescibacteria:          1
 
 See the report [here](https://htmlpreview.github.io/?https://github.com/IgnasiLucas/fly/blob/master/results/2020-02-11/taxonomy.html).

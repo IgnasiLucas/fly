@@ -24,6 +24,7 @@ library(DECIPHER)
 library(phangorn)
 library(plyr)
 load(params$DATA)
+NUM_THREADS=10
 ls()
 ```
 
@@ -49,8 +50,6 @@ SampleData <- data.frame(
                    ordered=TRUE),
   replicate = gsub("([EL][[:digit:]]+|.fastq.gz)", "", rownames(SeqTabNoChim)),
   seqrun = factor(1, levels=c(1,2))
-  #simpson = vegan::diversity(SeqTabClean, index='simpson', MARGIN=1),
-  #shannon = vegan::diversity(SeqTabClean, index='shannon', MARGIN=1)
 )
 row.names(SampleData) <- rownames(SeqTabNoChim)
 run2 <- paste(substring(SampleData$age, 1, 1),
@@ -131,11 +130,13 @@ filtered sequences.
 Below, I use conditional execution as a *home made* substitute for the
 `cache=TRUE` option, which does not seem to work well sometimes.
 
-```{r alignment, message=FALSE}
+```{r alignment, message=FALSE, warning=FALSE}
 if (file.exists('alignment.RData')) {
    load('alignment.RData')
 } else {
-   alignment <- AlignSeqs(RNAStringSet(dna[AmpFilt]))
+   alignment <- AlignSeqs(RNAStringSet(dna[AmpFilt]),
+                          iterations=10, refinements=10, processors=NUM_THREADS,
+                          verbose=FALSE)
    BrowseSeqs(alignment, htmlFile='alignment.html', openURL=FALSE)
    save(alignment, file='alignment.RData')
    # Forces removal of tree upon update of alignment:
